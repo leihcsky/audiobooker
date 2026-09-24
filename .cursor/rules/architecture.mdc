@@ -1,0 +1,66 @@
+---
+description: Architecture and layering rules
+alwaysApply: true
+---
+
+# Architecture Rules
+
+## Layers
+
+Use the following conceptual layers:
+
+1. UI
+2. API / Route Handler
+3. Validation
+4. Service
+5. Persistence / External Provider
+6. Queue / Worker where required
+
+Route handlers should coordinate requests, authentication, validation, and service calls. They should not contain large business workflows.
+
+## Directory conventions
+
+Prefer:
+
+- `app/` — Next.js routes, pages, layouts, route handlers
+- `components/` — reusable UI
+- `lib/auth/` — authentication
+- `lib/db/` — Prisma/database access
+- `lib/storage/` — R2/storage
+- `lib/parser/` — EPUB/PDF/TXT parsing
+- `lib/tts/` — TTS provider abstraction and adapters
+- `lib/audio/` — FFmpeg/audio processing
+- `lib/queue/` — queue configuration and job helpers
+- `lib/projects/` — project services
+- `lib/chapters/` — chapter services
+- `lib/usage/` — usage and entitlement logic
+- `lib/billing/` — billing/subscription logic
+- `worker/` — background workers
+- `prisma/` — schema and migrations
+- `tests/` — automated tests
+
+## External services
+
+Never couple product logic directly to one TTS provider.
+
+Use an interface such as:
+
+```ts
+interface TTSProvider {
+  generate(input: TTSGenerateInput): Promise<TTSGenerateResult>;
+  preview(input: TTSPreviewInput): Promise<TTSPreviewResult>;
+}
+```
+
+Provider-specific code belongs in adapters.
+
+## Background jobs
+
+Use jobs for:
+- large document parsing
+- chapter audio generation
+- regeneration
+- MP3/M4B export
+- expensive audio processing
+
+The API should enqueue work and return a job identifier rather than holding an HTTP request open for long operations.

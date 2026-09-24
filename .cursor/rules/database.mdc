@@ -1,0 +1,20 @@
+---
+description: Database rules based on DATABASE.md
+alwaysApply: true
+---
+
+# Database Rules
+
+- `docs/DATABASE.md` is the source of truth for the database design.
+- Prisma schema must remain consistent with DATABASE.md.
+- Do not introduce a new persistent entity without documenting it first.
+- Use foreign keys for ownership relationships.
+- Add indexes for frequent filtering and lookup paths.
+- Use unique constraints where the business model requires uniqueness.
+- Prefer explicit status enums for lifecycle state.
+- Store external provider identifiers separately from internal IDs.
+- Do not store binary/audio contents directly in MySQL; store files in R2/object storage.
+- Persist enough metadata to reproduce or audit generation jobs.
+- Use timestamps consistently.
+- Deletion behavior must be intentional; do not casually cascade-delete user data.
+- Database migrations must be reviewable and reproducible.

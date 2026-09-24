@@ -1,0 +1,34 @@
+---
+description: TypeScript and coding conventions
+alwaysApply: true
+---
+
+# Coding Rules
+
+## TypeScript
+- Prefer strict TypeScript.
+- Avoid `any`; use explicit types or `unknown` with narrowing.
+- Keep functions focused and reasonably small.
+- Prefer named types/interfaces for important domain objects.
+- Validate external input before using it.
+
+## React / Next.js
+- Prefer Server Components by default.
+- Use Client Components only where interactivity requires them.
+- Do not put secrets or server-only logic in client components.
+- Keep data fetching close to the server boundary where practical.
+
+## Error handling
+- Handle expected errors explicitly.
+- Convert internal errors into stable API error codes.
+- Log useful server-side context without logging secrets or sensitive file contents.
+
+## Naming
+- Components: PascalCase.
+- Functions/variables: camelCase.
+- Database fields: follow Prisma/schema conventions consistently.
+- API paths: lowercase kebab-case where appropriate.
+
+## Dependencies
+- Do not add a dependency merely for convenience if the functionality is small and easy to implement locally.
+- Before adding a dependency, consider bundle size, maintenance, security, and whether it is needed for the current phase.

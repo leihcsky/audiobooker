@@ -1,0 +1,37 @@
+---
+description: Core project rules for Audiobooker
+alwaysApply: true
+---
+
+# Audiobooker Project Rules
+
+## Product
+- Audiobooker is an online audiobook production workspace.
+- Long-term flow: Create → Build → Edit → Master → Publish.
+- Keep the brand/product positioning stable while expanding capabilities by phase.
+- Do not turn Audiobooker into a generic AI writing or generic text-to-speech app.
+
+## Development
+- Follow the current phase document before implementing new functionality.
+- Do not implement future-phase features unless explicitly requested.
+- Prefer small, testable changes over large rewrites.
+- After each meaningful change, run the relevant typecheck, lint, tests, and build checks.
+- Do not silently change product requirements documented in PRD.md.
+
+## Architecture
+- Keep business logic out of React components and route handlers.
+- Use service modules for application/business logic.
+- Use repository/database helpers for persistence concerns.
+- Use provider abstractions for external services such as TTS.
+- Use background jobs for long-running parsing, TTS generation, and export work.
+
+## Security
+- Every authenticated resource must be checked for ownership.
+- Never trust projectId, chapterId, userId, or storage keys supplied by the client.
+- Validate uploads by type, size, and expected structure.
+- Never expose private R2/storage URLs without an intentional access mechanism.
+- Never commit secrets or real credentials.
+
+## Scope
+- MVP should optimize for a working end-to-end audiobook workflow.
+- Avoid premature abstractions that are not required by the current phase.

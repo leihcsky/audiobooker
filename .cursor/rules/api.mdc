@@ -1,0 +1,34 @@
+---
+description: API rules based on API.md
+alwaysApply: true
+---
+
+# API Rules
+
+- `docs/API.md` is the source of truth for API contracts.
+- Validate every request at the API boundary.
+- Authenticate protected endpoints.
+- Authorize access to every project/chapter/job/export resource.
+- Use the standard response envelope:
+
+Success:
+```json
+{ "success": true, "data": {} }
+```
+
+Error:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable message"
+  }
+}
+```
+
+- Do not expose stack traces, SQL errors, provider secrets, or internal paths to clients.
+- Use appropriate HTTP status codes.
+- Long-running work should return a job ID.
+- API behavior must remain consistent with API.md.
+- If an API contract needs to change, update API.md before changing implementation.
