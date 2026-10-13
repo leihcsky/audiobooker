@@ -65,6 +65,8 @@ describe("export runner", () => {
         id: "c1",
         title: "Intro",
         orderIndex: 1,
+        selectedVoiceId: "edge-en-us-aria",
+        selectedSpeed: 1,
         currentAudioFile: {
           objectKey: "audio-1",
           durationSeconds: 1.2,

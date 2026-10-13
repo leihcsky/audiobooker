@@ -66,6 +66,7 @@ const metadata = {
   description: "A test",
   publisher: null,
   copyright: "2026",
+  aiDisclosure: "Narrated by a synthetic voice.",
 };
 
 describe.skipIf(!ffmpegAvailable())("m4b ffmpeg export", () => {

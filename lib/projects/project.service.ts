@@ -1,6 +1,8 @@
 import type { Prisma, Project } from "@/generated/prisma";
 import { forbidden, projectNotFound } from "@/lib/api/errors";
 import { toProjectDto, type ProjectDto } from "@/lib/projects/project.dto";
+import { JOBS_CANCELLED_ON_DELETE } from "@/lib/projects/project-deletion";
+import { DEFAULT_PROJECT_TITLE } from "@/lib/projects/project-title";
 import type {
   CreateProjectInput,
   ListProjectsQuery,
@@ -22,8 +24,13 @@ export type ProjectStore = {
       where: { id: string };
       data: Prisma.ProjectUpdateInput;
     }) => Promise<Project>;
-    delete: (args: { where: { id: string } }) => Promise<Project>;
     count: (args: { where?: Prisma.ProjectWhereInput }) => Promise<number>;
+  };
+  generationJob: {
+    updateMany: (args: {
+      where: Prisma.GenerationJobWhereInput;
+      data: Prisma.GenerationJobUpdateManyMutationInput;
+    }) => Promise<{ count: number }>;
   };
 };
 
@@ -65,7 +72,7 @@ async function getOwnedProjectOrThrow(
     where: { id: projectId },
   });
 
-  if (!project) {
+  if (!project || project.deletedAt) {
     throw projectNotFound();
   }
 
@@ -78,11 +85,17 @@ async function getOwnedProjectOrThrow(
 
 export function createProjectService(db: ProjectStore) {
   return {
-    async createProject(userId: string, input: CreateProjectInput): Promise<ProjectDto> {
+    async createProject(
+      userId: string,
+      input: CreateProjectInput,
+      options: { automaticTitle?: boolean } = {},
+    ): Promise<ProjectDto> {
+      const title = input.title?.trim() ?? "";
       const project = await db.project.create({
         data: {
           userId,
-          title: input.title.trim(),
+          title: title || DEFAULT_PROJECT_TITLE,
+          titleSetByUser: title.length > 0 && !options.automaticTitle,
           author: normalizeOptionalText(input.author) ?? null,
           description: normalizeOptionalText(input.description) ?? null,
           language: normalizeLanguage(input.language),
@@ -99,6 +112,7 @@ export function createProjectService(db: ProjectStore) {
     ): Promise<ProjectListResult> {
       const where: Prisma.ProjectWhereInput = {
         userId,
+        deletedAt: null,
         ...(query.status ? { status: query.status } : {}),
       };
 
@@ -140,6 +154,7 @@ export function createProjectService(db: ProjectStore) {
 
       if (input.title !== undefined) {
         data.title = input.title.trim();
+        data.titleSetByUser = true;
       }
 
       if (input.author !== undefined) {
@@ -166,6 +181,10 @@ export function createProjectService(db: ProjectStore) {
         data.copyright = normalizeOptionalText(input.copyright) ?? null;
       }
 
+      if (input.aiDisclosure !== undefined) {
+        data.aiDisclosure = normalizeOptionalText(input.aiDisclosure) ?? null;
+      }
+
       const project = await db.project.update({
         where: { id: projectId },
         data,
@@ -176,8 +195,14 @@ export function createProjectService(db: ProjectStore) {
 
     async deleteProjectForUser(projectId: string, userId: string): Promise<void> {
       await getOwnedProjectOrThrow(db, projectId, userId);
-      await db.project.delete({
+      const now = new Date();
+      await db.project.update({
         where: { id: projectId },
+        data: { deletedAt: now },
+      });
+      await db.generationJob.updateMany({
+        where: { projectId, ...JOBS_CANCELLED_ON_DELETE },
+        data: { status: "CANCELLED", completedAt: now },
       });
     },
   };

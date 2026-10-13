@@ -12,6 +12,12 @@ export type PlanDefinition = {
   standardMonthlyHardCharacters: number;
   /** Pays the discounted minute-pack price. */
   discountedMinutePacks: boolean;
+  /** Publish-ready mastered MP3 exports with a QC report. */
+  publishMastering: boolean;
+  /** Per-project "say it as" rules applied before synthesis. */
+  pronunciationDictionary: boolean;
+  /** Paragraph view on the chapter page: fix or re-read one paragraph. */
+  paragraphFix: boolean;
 };
 
 export const PLANS: Record<PlanId, PlanDefinition> = {
@@ -24,6 +30,9 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     standardMonthlySoftCharacters: 2_000_000,
     standardMonthlyHardCharacters: 5_000_000,
     discountedMinutePacks: false,
+    publishMastering: false,
+    pronunciationDictionary: false,
+    paragraphFix: false,
   },
   creator: {
     id: "creator",
@@ -34,6 +43,9 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     standardMonthlySoftCharacters: 10_000_000,
     standardMonthlyHardCharacters: 25_000_000,
     discountedMinutePacks: true,
+    publishMastering: true,
+    pronunciationDictionary: true,
+    paragraphFix: true,
   },
 };
 

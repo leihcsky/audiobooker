@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 type SaveProjectCtaProps = {
   projectId: string;
   signedIn: boolean;
+  title?: string;
   reason?: string;
 };
 
-export function SaveProjectCta({ projectId, signedIn, reason }: SaveProjectCtaProps) {
+export function SaveProjectCta({ projectId, signedIn, title, reason }: SaveProjectCtaProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +41,8 @@ export function SaveProjectCta({ projectId, signedIn, reason }: SaveProjectCtaPr
   }
 
   return (
-    <div className="rounded-md border border-border bg-card px-4 py-4">
-      <p className="font-medium">Save this project to Studio</p>
+    <div className={title ? "rounded-md border border-primary/40 bg-primary/5 px-4 py-4" : "rounded-md border border-border bg-card px-4 py-4"}>
+      <p className="font-medium">{title ?? "Save this project to Studio"}</p>
       <p className="mt-1 text-sm text-muted-foreground">
         {reason ??
           "Keep the chapters, audio, and remaining work in your account so you can finish the book later."}

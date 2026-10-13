@@ -76,6 +76,9 @@ export default async function MarketingLayout({ children }: { children: ReactNod
             <Link href="/ebook-to-audiobook" className="hover:underline">
               Ebook to Audiobook
             </Link>
+            <Link href="/publish-audiobook" className="hover:underline">
+              Publishing Guide
+            </Link>
             <Link href="/pricing" className="hover:underline">
               Pricing
             </Link>

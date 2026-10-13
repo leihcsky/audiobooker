@@ -5,6 +5,7 @@ import { toProjectDto, type ProjectDto } from "@/lib/projects/project.dto";
 import { countWords } from "@/lib/parser/normalize";
 import { summarizeProjectProgress, type ProjectProgress } from "@/lib/projects/project.progress";
 import { assertProjectAccess } from "@/lib/tools/access";
+import { estimateNarrationSeconds } from "@/lib/tts/narration-length";
 
 export type SourceFileSummary = {
   id: string;
@@ -30,6 +31,8 @@ export type ChapterSummary = {
   orderIndex: number;
   characterCount: number;
   wordCount: number;
+  /** Rough listening time before audio exists; see `estimateNarrationSeconds`. */
+  estimatedSeconds: number;
   status: Chapter["status"];
   selectedVoiceId: string | null;
   selectedSpeed: number;
@@ -151,6 +154,7 @@ export function toChapterSummary(
     orderIndex: chapter.orderIndex,
     characterCount: chapter.characterCount,
     wordCount: countWords(chapter.sourceText),
+    estimatedSeconds: estimateNarrationSeconds(chapter.sourceText),
     status: chapter.status,
     selectedVoiceId: chapter.selectedVoiceId,
     selectedSpeed: Number(chapter.selectedSpeed),

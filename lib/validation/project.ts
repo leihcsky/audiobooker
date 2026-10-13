@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_AI_DISCLOSURE_LENGTH } from "@/lib/publish/disclosure";
 
 export const projectStatusSchema = z.enum([
   "DRAFT",
@@ -27,8 +28,8 @@ export const createProjectSchema = z.object({
   title: z
     .string()
     .trim()
-    .min(1, "Title is required.")
-    .max(255, "Title must be at most 255 characters."),
+    .max(255, "Title must be at most 255 characters.")
+    .optional(),
   author: optionalNullableText(255).optional(),
   description: optionalNullableText(5000).optional(),
   language: z
@@ -56,6 +57,7 @@ export const updateProjectSchema = z
     narrator: optionalNullableText(255).optional(),
     publisher: optionalNullableText(255).optional(),
     copyright: optionalNullableText(255).optional(),
+    aiDisclosure: optionalNullableText(MAX_AI_DISCLOSURE_LENGTH).optional(),
   })
   .refine(
     (value) =>
@@ -65,7 +67,8 @@ export const updateProjectSchema = z
       value.language !== undefined ||
       value.narrator !== undefined ||
       value.publisher !== undefined ||
-      value.copyright !== undefined,
+      value.copyright !== undefined ||
+      value.aiDisclosure !== undefined,
     { message: "At least one field is required." },
   );
 

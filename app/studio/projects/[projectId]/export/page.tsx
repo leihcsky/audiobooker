@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { StudioPageNav } from "@/components/studio/page-nav";
 import { AppError } from "@/lib/api/errors";
 import { requireSession } from "@/lib/auth/session";
+import { canUsePublishMastering } from "@/lib/billing/entitlements";
 import { ExportStudioPanel } from "@/components/export/export-studio-panel";
 import {
   getExportReadinessForUser,
@@ -21,16 +22,18 @@ type ExportPageData = {
   project: ProjectDto;
   readiness: ExportReadinessDto;
   exports: ExportDto[];
+  canMaster: boolean;
 };
 
 async function loadExportPage(projectId: string, userId: string): Promise<ExportPageData> {
   try {
-    const [project, readiness, exports] = await Promise.all([
+    const [project, readiness, exports, canMaster] = await Promise.all([
       getProjectForUser(projectId, userId),
       getExportReadinessForUser(projectId, userId),
       listExportsForUser(projectId, userId),
+      canUsePublishMastering({ type: "user", userId }),
     ]);
-    return { project, readiness, exports };
+    return { project, readiness, exports, canMaster };
   } catch (error) {
     if (
       error instanceof AppError &&
@@ -50,7 +53,7 @@ export default async function ProjectExportPage({ params }: ExportPageProps) {
     notFound();
   }
 
-  const { project, readiness, exports } = await loadExportPage(parsedId.data, user.id);
+  const { project, readiness, exports, canMaster } = await loadExportPage(parsedId.data, user.id);
 
   return (
     <main className="space-y-8">
@@ -68,7 +71,7 @@ export default async function ProjectExportPage({ params }: ExportPageProps) {
           Review metadata, add a cover, and package the generated chapter audio as MP3 or M4B.
         </p>
       </div>
-      <ExportStudioPanel project={project} readiness={readiness} exports={exports} />
+      <ExportStudioPanel project={project} readiness={readiness} exports={exports} canMaster={canMaster} />
     </main>
   );
 }

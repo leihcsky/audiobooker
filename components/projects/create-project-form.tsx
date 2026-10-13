@@ -38,7 +38,7 @@ export function CreateProjectForm() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title,
+        title: title.trim() ? title : undefined,
         description: description.trim() ? description : undefined,
       }),
     });
@@ -67,16 +67,29 @@ export function CreateProjectForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <div className="space-y-2">
-        <Label htmlFor="title">Title</Label>
-        <Input id="title" name="title" required maxLength={255} placeholder="My Audiobook" />
+        <Label htmlFor="title">
+          Audiobook title <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
+        <Input
+          id="title"
+          name="title"
+          maxLength={255}
+          placeholder="Leave blank to use your ebook's title"
+          aria-describedby="title-hint"
+        />
+        <p id="title-hint" className="text-xs text-muted-foreground">
+          A title you type here stays when you upload your ebook. You can change it anytime.
+        </p>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
+        <Label htmlFor="description">
+          Description <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
         <Textarea
           id="description"
           name="description"
           maxLength={5000}
-          placeholder="Optional description"
+          placeholder="A short note about this audiobook"
         />
       </div>
       {error ? (

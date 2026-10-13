@@ -36,9 +36,18 @@ const db = vi.hoisted(() => {
     userId: string;
     bucket?: string;
     type?: string;
-    expiresAt?: { gt: Date };
+    expiresAt?: { gt: Date } | Date;
     referenceType?: string;
     referenceId?: string;
+  };
+  const matchesExpiry = (entry: Entry, expiresAt: LedgerWhere["expiresAt"]) => {
+    if (!expiresAt) {
+      return true;
+    }
+    if (expiresAt instanceof Date) {
+      return entry.expiresAt?.getTime() === expiresAt.getTime();
+    }
+    return entry.expiresAt !== null && entry.expiresAt > expiresAt.gt;
   };
   const matches = (entry: Entry, where: LedgerWhere) =>
     entry.userId === where.userId &&
@@ -46,7 +55,7 @@ const db = vi.hoisted(() => {
     (!where.type || entry.type === where.type) &&
     (!where.referenceType || entry.referenceType === where.referenceType) &&
     (!where.referenceId || entry.referenceId === where.referenceId) &&
-    (!where.expiresAt || (entry.expiresAt !== null && entry.expiresAt > where.expiresAt.gt));
+    matchesExpiry(entry, where.expiresAt);
   const byExpiryDesc = (a: Entry, b: Entry) => (b.expiresAt?.getTime() ?? 0) - (a.expiresAt?.getTime() ?? 0);
 
   const client = {
@@ -154,9 +163,12 @@ import {
   captureReservation,
   ensureMonthlyGrant,
   getPremiumBalance,
+  grantPurchasedSeconds,
   monthlyGrantExpiry,
   releaseReservationForJob,
   reserveCredits,
+  reverseMonthlyGrant,
+  reversePurchasedSeconds,
 } from "@/lib/billing/credits.service";
 
 const tx = db as unknown as Prisma.TransactionClient;
@@ -351,6 +363,59 @@ describe("credits.service", () => {
     store.reservations[2].jobId = null;
 
     expect(await balance()).toMatchObject({ availableSeconds: 3400, reservedSeconds: 200 });
+  });
+
+  it("adds a paid pack once per order", async () => {
+    getUserPlanState.mockResolvedValue(freeState);
+    await grantPurchasedSeconds(tx, { userId, orderId: "order-1", seconds: 7200, metadata: { itemId: "short" } });
+    await grantPurchasedSeconds(tx, { userId, orderId: "order-1", seconds: 7200, metadata: { itemId: "short" } });
+
+    expect(store.ledger.filter((e) => e.type === "PURCHASE")).toHaveLength(1);
+    expect(store.ledger[0]).toMatchObject({ referenceType: "billing_order", idempotencyKey: "purchase:order-1" });
+    expect((await balance()).purchasedSeconds).toBe(7200);
+  });
+
+  it("takes back refunded pack minutes only up to what is left, once per refund", async () => {
+    getUserPlanState.mockResolvedValue(freeState);
+    purchase(7200);
+    await reserveCredits(tx, { userId, jobId: "job-1", seconds: 5000 });
+
+    const removed = await reversePurchasedSeconds(tx, {
+      userId,
+      orderId: "order-1",
+      idempotencyKey: "reversal:waffo:REF_1",
+      seconds: 7200,
+    });
+    const again = await reversePurchasedSeconds(tx, {
+      userId,
+      orderId: "order-1",
+      idempotencyKey: "reversal:waffo:REF_1",
+      seconds: 7200,
+    });
+
+    expect(removed).toBe(2200);
+    expect(again).toBe(0);
+    expect((await balance()).purchasedSeconds).toBe(0);
+  });
+
+  it("takes back a refunded share of the latest monthly grant, capped at its lot", async () => {
+    getUserPlanState.mockResolvedValue(freeState);
+    const expiresAt = new Date("2099-12-01T00:00:00.000Z");
+    monthlyGrant(3600, expiresAt, "monthly:b");
+    await reserveCredits(tx, { userId, jobId: "job-1", seconds: 3000 });
+
+    const removed = await reverseMonthlyGrant(tx, {
+      userId,
+      orderId: "order-2",
+      idempotencyKey: "reversal:waffo:REF_2",
+      subscriptionId: "sub-1",
+      fraction: 1,
+    });
+
+    expect(removed).toBe(600);
+    const reversal = store.ledger.find((e) => e.type === "PURCHASE_REVERSAL");
+    expect(reversal).toMatchObject({ bucket: "MONTHLY", amountSeconds: -600, expiresAt });
+    expect((await balance()).monthlySeconds).toBe(0);
   });
 
   it("explains a shortfall in minutes and points to buying more", async () => {

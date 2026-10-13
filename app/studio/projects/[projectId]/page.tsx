@@ -71,10 +71,22 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Link
+            href={`/studio/projects/${project.id}/pronunciation`}
+            className="inline-flex h-10 items-center rounded-md border border-border px-4 text-sm hover:bg-muted"
+          >
+            Pronunciation
+          </Link>
+          <Link
             href={`/studio/projects/${project.id}/export`}
             className="inline-flex h-10 items-center rounded-md border border-border px-4 text-sm hover:bg-muted"
           >
             Export
+          </Link>
+          <Link
+            href={`/studio/projects/${project.id}/publish`}
+            className="inline-flex h-10 items-center rounded-md border border-border px-4 text-sm hover:bg-muted"
+          >
+            Publish
           </Link>
           <DeleteProjectButton projectId={project.id} title={project.title} />
         </div>

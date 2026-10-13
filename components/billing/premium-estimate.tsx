@@ -17,7 +17,7 @@ export function PremiumEstimate({
       {short ? (
         <>
           Needs about {needed} premium min · only {left} left.{" "}
-          <Link href="/pricing#minute-packs" className="font-medium underline">
+          <Link href="/studio/billing#minute-packs" className="font-medium underline">
             Buy minutes
           </Link>{" "}
           or choose a standard voice.

@@ -6,7 +6,7 @@ describe("chunkText", () => {
   it("keeps a short chapter as one chunk", () => {
     const chunks = chunkText("Hello world.", { maxCharacters: 100 });
     expect(chunks).toEqual([
-      { index: 0, text: "Hello world.", characterCount: 12 },
+      { index: 0, paragraph: 0, text: "Hello world.", characterCount: 12 },
     ]);
   });
 
@@ -22,10 +22,34 @@ describe("chunkText", () => {
     expect(chunks.map((chunk) => chunk.index)).toEqual([0, 1, 2]);
   });
 
-  it("packs small paragraphs into one chunk when they fit", () => {
+  it("never packs paragraphs together, so each chunk belongs to one paragraph", () => {
     const chunks = chunkText("One.\n\nTwo.", { maxCharacters: 20 });
-    expect(chunks).toHaveLength(1);
-    expect(chunks[0]?.text).toBe("One.\n\nTwo.");
+    expect(chunks).toEqual([
+      { index: 0, paragraph: 0, text: "One.", characterCount: 4 },
+      { index: 1, paragraph: 1, text: "Two.", characterCount: 4 },
+    ]);
+  });
+
+  it("editing one paragraph leaves the other chunks unchanged", () => {
+    const options = { maxCharacters: 40 };
+    const before = chunkText("Alpha one.\n\nBeta two is long. Beta two continues.\n\nGamma.", options);
+    const after = chunkText("Alpha one.\n\nBeta changed.\n\nGamma.", options);
+    expect(before.filter((chunk) => chunk.paragraph !== 1).map((chunk) => chunk.text)).toEqual(
+      after.filter((chunk) => chunk.paragraph !== 1).map((chunk) => chunk.text),
+    );
+  });
+
+  it("skips paragraphs with nothing to read but keeps paragraph numbering", () => {
+    const chunks = chunkText("Start.\n\n* * *\n\nEnd.", { maxCharacters: 100 });
+    expect(chunks.map((chunk) => [chunk.paragraph, chunk.text])).toEqual([
+      [0, "Start."],
+      [2, "End."],
+    ]);
+  });
+
+  it("splits a long paragraph into several chunks of the same paragraph", () => {
+    const chunks = chunkText("Intro.\n\nFirst sentence. Second sentence.", { maxCharacters: 20 });
+    expect(chunks.map((chunk) => chunk.paragraph)).toEqual([0, 1, 1]);
   });
 
   it("splits a long sentence by words without breaking a word", () => {

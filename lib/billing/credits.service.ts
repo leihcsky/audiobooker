@@ -251,7 +251,7 @@ export async function reserveCredits(
   input: { userId: string; jobId: string; seconds: number; now?: Date },
 ): Promise<void> {
   const now = input.now ?? new Date();
-  await tx.$queryRaw`SELECT id FROM \`User\` WHERE id = ${input.userId} FOR UPDATE`;
+  await lockUser(tx, input.userId);
   const [lots, purchasedAvailable] = await Promise.all([
     readMonthlyLots(tx, input.userId, now),
     readPurchasedSeconds(tx, input.userId),
@@ -340,6 +340,120 @@ export async function captureReservation(
   if (refundSeconds > 0) {
     await writeRefund(tx, { reservation, refundSeconds, reason: "unused" });
   }
+}
+
+async function lockUser(tx: Db, userId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM \`User\` WHERE id = ${userId} FOR UPDATE`;
+}
+
+async function hasLedgerEntry(tx: Db, idempotencyKey: string): Promise<boolean> {
+  return (await tx.creditLedger.findUnique({ where: { idempotencyKey }, select: { id: true } })) !== null;
+}
+
+/** Adds a paid minute pack; a repeated order is a no-op. */
+export async function grantPurchasedSeconds(
+  tx: Db,
+  input: { userId: string; orderId: string; seconds: number; metadata: Prisma.InputJsonObject },
+): Promise<void> {
+  const idempotencyKey = `purchase:${input.orderId}`;
+  if (input.seconds <= 0 || (await hasLedgerEntry(tx, idempotencyKey))) {
+    return;
+  }
+  await tx.creditLedger.create({
+    data: {
+      userId: input.userId,
+      type: "PURCHASE",
+      bucket: "PURCHASED",
+      amountSeconds: input.seconds,
+      referenceType: "billing_order",
+      referenceId: input.orderId,
+      idempotencyKey,
+      metadata: input.metadata,
+    },
+  });
+}
+
+type ReversalInput = {
+  userId: string;
+  orderId: string;
+  /** Unique per refund, so a refund is reversed at most once. */
+  idempotencyKey: string;
+  seconds: number;
+};
+
+/** Takes back refunded pack minutes that have not been spent. Returns the seconds removed. */
+export async function reversePurchasedSeconds(tx: Db, input: ReversalInput): Promise<number> {
+  if (input.seconds <= 0 || (await hasLedgerEntry(tx, input.idempotencyKey))) {
+    return 0;
+  }
+  await lockUser(tx, input.userId);
+  const amount = Math.min(input.seconds, await readPurchasedSeconds(tx, input.userId));
+  if (amount <= 0) {
+    return 0;
+  }
+  await tx.creditLedger.create({
+    data: {
+      userId: input.userId,
+      type: "PURCHASE_REVERSAL",
+      bucket: "PURCHASED",
+      amountSeconds: -amount,
+      referenceType: "billing_order",
+      referenceId: input.orderId,
+      idempotencyKey: input.idempotencyKey,
+      metadata: { requestedSeconds: input.seconds },
+    },
+  });
+  return amount;
+}
+
+/**
+ * Takes back a share of the subscription's latest monthly grant, capped at
+ * what is left in that grant's lot. Returns the seconds removed.
+ */
+export async function reverseMonthlyGrant(
+  tx: Db,
+  input: Omit<ReversalInput, "seconds"> & { subscriptionId: string; fraction: number; now?: Date },
+): Promise<number> {
+  if (await hasLedgerEntry(tx, input.idempotencyKey)) {
+    return 0;
+  }
+  const grant = await tx.creditLedger.findFirst({
+    where: {
+      userId: input.userId,
+      type: "MONTHLY_GRANT",
+      referenceType: "subscription",
+      referenceId: input.subscriptionId,
+    },
+    orderBy: { createdAt: "desc" },
+    select: { amountSeconds: true, expiresAt: true },
+  });
+  if (!grant?.expiresAt || grant.expiresAt <= (input.now ?? new Date())) {
+    return 0;
+  }
+  await lockUser(tx, input.userId);
+  const lot = await tx.creditLedger.aggregate({
+    where: { userId: input.userId, bucket: "MONTHLY", expiresAt: grant.expiresAt },
+    _sum: { amountSeconds: true },
+  });
+  const wanted = Math.ceil(grant.amountSeconds * Math.min(1, Math.max(0, input.fraction)));
+  const amount = Math.min(wanted, Math.max(0, lot._sum.amountSeconds ?? 0));
+  if (amount <= 0) {
+    return 0;
+  }
+  await tx.creditLedger.create({
+    data: {
+      userId: input.userId,
+      type: "PURCHASE_REVERSAL",
+      bucket: "MONTHLY",
+      amountSeconds: -amount,
+      expiresAt: grant.expiresAt,
+      referenceType: "billing_order",
+      referenceId: input.orderId,
+      idempotencyKey: input.idempotencyKey,
+      metadata: { requestedSeconds: wanted, subscriptionId: input.subscriptionId },
+    },
+  });
+  return amount;
 }
 
 export async function releaseReservationForJob(tx: Db, jobId: string, reason: string): Promise<void> {

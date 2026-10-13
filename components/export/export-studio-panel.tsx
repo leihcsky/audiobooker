@@ -12,7 +12,9 @@ import type { ExportDto } from "@/lib/export/export.dto";
 import type { ExportReadinessDto } from "@/lib/export/export.service";
 import type { JobSummary } from "@/lib/projects/project.detail";
 import type { ProjectDto } from "@/lib/projects/project.dto";
-import { formatDate } from "@/lib/utils";
+import { QcReportDetails } from "@/components/export/qc-report-details";
+import { DEFAULT_NARRATOR_CREDIT } from "@/lib/publish/disclosure";
+import { cn, formatDate } from "@/lib/utils";
 
 type ApiError = {
   success: false;
@@ -23,7 +25,17 @@ type ExportStudioPanelProps = {
   project: ProjectDto;
   readiness: ExportReadinessDto;
   exports: ExportDto[];
+  canMaster: boolean;
 };
+
+type ExportFormat = "publish" | "mp3" | "m4b";
+
+function exportLabel(item: ExportDto): string {
+  if (item.type === "M4B") {
+    return "M4B audiobook";
+  }
+  return item.masteringPreset ? "Publish-ready MP3" : "MP3 ZIP";
+}
 
 function userFacingExportError(code?: string, fallback?: string) {
   if (code === "EXPORT_AUDIO_INCOMPLETE") {
@@ -37,6 +49,9 @@ function userFacingExportError(code?: string, fallback?: string) {
   }
   if (code === "FILE_TYPE_NOT_SUPPORTED") {
     return "Use a JPEG, PNG, or WebP cover image.";
+  }
+  if (code === "PLAN_REQUIRED") {
+    return "Publish-ready exports are part of the Creator plan.";
   }
   return fallback ?? "We couldn't export this audiobook.";
 }
@@ -55,11 +70,11 @@ function formatBytes(value: string | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function ExportStudioPanel({ project, readiness, exports }: ExportStudioPanelProps) {
+export function ExportStudioPanel({ project, readiness, exports, canMaster }: ExportStudioPanelProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<"metadata" | "cover" | "export" | null>(null);
-  const [format, setFormat] = useState<"mp3" | "m4b">("m4b");
+  const [format, setFormat] = useState<ExportFormat>(canMaster ? "publish" : "m4b");
   const [loadedCoverUrl, setLoadedCoverUrl] = useState<string | null>(null);
   const [startedExport, setStartedExport] = useState<ExportDto | null>(null);
   const exportsState = useMemo(() => {
@@ -174,10 +189,14 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
   async function onExport() {
     setError(null);
     setPending("export");
-    const response = await fetch(`/api/projects/${project.id}/export/${format}`, {
+    const response = await fetch(`/api/projects/${project.id}/export/${format === "m4b" ? "m4b" : "mp3"}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(format === "m4b" ? { includeCover: true } : { includeMetadata: true }),
+      body: JSON.stringify(
+        format === "m4b"
+          ? { includeCover: true }
+          : { includeMetadata: true, ...(format === "publish" ? { mastering: "publish" } : {}) },
+      ),
     });
     const payload = (await response.json().catch(() => null)) as
       | ApiError
@@ -208,7 +227,7 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
 
   return (
     <div className="space-y-8">
-      <Card>
+      <Card id="metadata" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Audiobook metadata</CardTitle>
           <CardDescription>These fields are written into the M4B file and the MP3 package.</CardDescription>
@@ -225,7 +244,13 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
             </div>
             <div className="space-y-2">
               <Label htmlFor="narrator">Narrator</Label>
-              <Input id="narrator" name="narrator" maxLength={255} defaultValue={project.narrator ?? ""} />
+              <Input
+                id="narrator"
+                name="narrator"
+                maxLength={255}
+                placeholder={DEFAULT_NARRATOR_CREDIT}
+                defaultValue={project.narrator ?? ""}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="language">Language</Label>
@@ -257,10 +282,12 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="cover" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Cover</CardTitle>
-          <CardDescription>JPEG, PNG, or WebP. Used for the M4B audiobook.</CardDescription>
+          <CardDescription>
+            Square JPEG, PNG, or WebP. Stores recommend 3000×3000 pixels.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-start gap-6">
           {coverUrl ? (
@@ -331,6 +358,33 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
         <CardContent className="space-y-5">
           <fieldset className="space-y-3">
             <legend className="text-sm font-medium">Format</legend>
+            <div id="publish-ready" className="scroll-mt-24 rounded-md border border-border p-3">
+              <label className={cn("flex items-start gap-2 text-sm", !canMaster && "text-muted-foreground")}>
+                <input
+                  type="radio"
+                  name="format"
+                  className="mt-1"
+                  checked={format === "publish"}
+                  disabled={!canMaster}
+                  onChange={() => setFormat("publish")}
+                />
+                <span>
+                  <span className="font-medium text-foreground">Publish-ready MP3</span>
+                  <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                    Creator
+                  </span>
+                  <span className="mt-1 block">
+                    Mastered for Spotify and Google Play: even loudness, 192 kbps, opening credits, and a
+                    quality report for every file.
+                  </span>
+                </span>
+              </label>
+              {!canMaster ? (
+                <Link href="/pricing" className="mt-2 ml-6 inline-block text-sm font-medium underline">
+                  Upgrade to Creator
+                </Link>
+              ) : null}
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="radio"
@@ -338,7 +392,7 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
                 checked={format === "mp3"}
                 onChange={() => setFormat("mp3")}
               />
-              MP3 ZIP — one file per chapter
+              MP3 ZIP — original chapter files
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -357,7 +411,9 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
                 {activeExport.status === "QUEUED" ? "Export queued..." : "Exporting your audiobook..."}
               </p>
               <p className="mt-1 text-muted-foreground">
-                This can take a few minutes for longer books.
+                {activeExport.masteringPreset
+                  ? "Mastering takes a few minutes per hour of audio. You can leave this page."
+                  : "This can take a few minutes for longer books."}
               </p>
             </div>
           ) : null}
@@ -376,7 +432,7 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="exports" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Export history</CardTitle>
         </CardHeader>
@@ -387,10 +443,8 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
             <ul className="divide-y divide-border">
               {exportsState.map((item) => (
                 <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <div>
-                    <p className="font-medium">
-                      {item.type === "M4B" ? "M4B audiobook" : "MP3 ZIP"}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{exportLabel(item)}</p>
                     <p className="text-sm text-muted-foreground">
                       {item.status}
                       {item.sizeBytes ? ` · ${formatBytes(item.sizeBytes)}` : ""}
@@ -399,6 +453,7 @@ export function ExportStudioPanel({ project, readiness, exports }: ExportStudioP
                     {item.status === "FAILED" && item.errorMessage ? (
                       <p className="mt-1 text-sm text-destructive">{item.errorMessage}</p>
                     ) : null}
+                    {item.status === "COMPLETED" && item.qcReport ? <QcReportDetails report={item.qcReport} /> : null}
                   </div>
                   {item.status === "COMPLETED" ? (
                     <Button variant="outline" onClick={() => void onDownload(item.id)}>

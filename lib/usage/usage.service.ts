@@ -181,7 +181,7 @@ export async function assertStandardCapacityForActor(
   const remaining = await getAnonymousRemaining(actor.sessionId, now);
   if (additionalCharacters > remaining) {
     throw generationLimitReached(
-      "This free session's narration limit has been reached. Save the project to a free account to keep going.",
+      "You've reached the end of the free preview. Create a free account to narrate the rest of the book.",
     );
   }
 }
@@ -350,7 +350,7 @@ export async function assertAnonymousExportLimit(
 ): Promise<void> {
   const count = await prisma.export.count({
     where: {
-      project: { anonymousSessionId: sessionId, userId: null },
+      project: { anonymousSessionId: sessionId, userId: null, deletedAt: null },
       type,
       status: { in: ["QUEUED", "PROCESSING", "COMPLETED"] },
     },
@@ -366,7 +366,7 @@ export async function assertAnonymousExportLimit(
 export async function assertAnonymousJobConcurrency(sessionId: string): Promise<void> {
   const count = await prisma.generationJob.count({
     where: {
-      project: { anonymousSessionId: sessionId, userId: null },
+      project: { anonymousSessionId: sessionId, userId: null, deletedAt: null },
       type: { in: ["GENERATE_TTS", "GENERATE_PROJECT"] },
       parentJobId: null,
       status: { in: ["QUEUED", "PROCESSING"] },

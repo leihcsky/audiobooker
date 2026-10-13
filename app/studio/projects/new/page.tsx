@@ -14,7 +14,7 @@ export default async function NewProjectPage() {
       <div>
         <h1 className="font-serif text-4xl tracking-tight">Create Project</h1>
         <p className="mt-2 text-muted-foreground">
-          Start with a title. Voice, manuscript, and metadata come later.
+          Create the project, then upload your ebook. Voice and metadata come after that.
         </p>
       </div>
       {atLimit ? (
@@ -45,7 +45,7 @@ export default async function NewProjectPage() {
         <Card>
           <CardHeader>
             <CardTitle>Project details</CardTitle>
-            <CardDescription>Only a title is required.</CardDescription>
+            <CardDescription>Nothing here is required.</CardDescription>
           </CardHeader>
           <CardContent>
             <CreateProjectForm />

@@ -21,6 +21,38 @@ describe("project service", () => {
     expect(project.status).toBe("DRAFT");
     expect(store.records).toHaveLength(1);
     expect(store.records[0]?.userId).toBe(ownerId);
+    expect(store.records[0]?.titleSetByUser).toBe(true);
+  });
+
+  it("uses a placeholder title the first parse may replace when none is given", async () => {
+    const store = createMemoryProjectStore();
+    const service = createProjectService(store);
+
+    const project = await service.createProject(ownerId, { title: "   " });
+
+    expect(project.title).toBe("Untitled audiobook");
+    expect(store.records[0]?.titleSetByUser).toBe(false);
+  });
+
+  it("marks titles derived from a file name as automatic", async () => {
+    const store = createMemoryProjectStore();
+    const service = createProjectService(store);
+
+    await service.createProject(ownerId, { title: "my-book" }, { automaticTitle: true });
+
+    expect(store.records[0]?.title).toBe("my-book");
+    expect(store.records[0]?.titleSetByUser).toBe(false);
+  });
+
+  it("keeps a title the user edits after parsing", async () => {
+    const store = createMemoryProjectStore([makeProject({ userId: ownerId, titleSetByUser: false })]);
+    const service = createProjectService(store);
+
+    await service.updateProjectForUser("11111111-1111-4111-8111-111111111111", ownerId, {
+      title: "My Edit",
+    });
+
+    expect(store.records[0]?.titleSetByUser).toBe(true);
   });
 
   it("lists only the current user's projects", async () => {
@@ -100,16 +132,39 @@ describe("project service", () => {
     });
   });
 
-  it("lets a user delete their own project", async () => {
+  it("soft-deletes a user's own project and cancels its pending work", async () => {
+    const projectId = "11111111-1111-4111-8111-111111111111";
     const store = createMemoryProjectStore([makeProject({ userId: ownerId })]);
     const service = createProjectService(store);
 
-    await service.deleteProjectForUser(
-      "11111111-1111-4111-8111-111111111111",
-      ownerId,
-    );
+    await service.deleteProjectForUser(projectId, ownerId);
 
-    expect(store.records).toHaveLength(0);
+    expect(store.records).toHaveLength(1);
+    expect(store.records[0]?.deletedAt).toBeInstanceOf(Date);
+    expect(store.cancelledJobs).toEqual([
+      {
+        projectId,
+        OR: [{ status: "QUEUED" }, { type: "GENERATE_PROJECT", status: "PROCESSING" }],
+      },
+    ]);
+  });
+
+  it("hides a deleted project from its owner", async () => {
+    const projectId = "11111111-1111-4111-8111-111111111111";
+    const store = createMemoryProjectStore([
+      makeProject({ userId: ownerId, deletedAt: new Date("2026-01-20T00:00:00.000Z") }),
+    ]);
+    const service = createProjectService(store);
+
+    await expect(service.getProjectForUser(projectId, ownerId)).rejects.toMatchObject({
+      code: "PROJECT_NOT_FOUND",
+    });
+    await expect(service.deleteProjectForUser(projectId, ownerId)).rejects.toMatchObject({
+      code: "PROJECT_NOT_FOUND",
+    });
+    const list = await service.listProjectsForUser(ownerId, { page: 1, limit: 20 });
+    expect(list.projects).toHaveLength(0);
+    expect(list.pagination.total).toBe(0);
   });
 
   it("does not let a user delete another user's project", async () => {

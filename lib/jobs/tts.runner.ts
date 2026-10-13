@@ -5,24 +5,25 @@ import { billablePremiumSeconds } from "@/lib/billing/premium-usage";
 import { TTS_SETTINGS } from "@/lib/config/limits";
 import { prisma } from "@/lib/db/prisma";
 import { claimTtsJob, touchTtsJob } from "@/lib/jobs/tts-claim";
+import { loadActivePronunciationRules } from "@/lib/pronunciation/pronunciation.service";
 import { getStorage } from "@/lib/storage";
 import { buildChapterAudioObjectKey } from "@/lib/storage/keys";
 import { resolveVoice } from "@/lib/tts";
 import { validateSynthesizedAudio } from "@/lib/tts/audio-validation";
-import {
-  buildTtsCacheKey,
-  DEFAULT_PITCH,
-  DEFAULT_VOLUME,
-  readTtsCache,
-  writeTtsCache,
-} from "@/lib/tts/cache";
-import { chunkText } from "@/lib/tts/chunking";
+import { readTtsCache, writeTtsCache } from "@/lib/tts/cache";
 import { withProviderSlot } from "@/lib/tts/concurrency";
-import { concatMp3Buffers, estimateDurationFromCharacters, estimateMp3DurationSeconds } from "@/lib/tts/mp3";
+import { estimateDurationFromCharacters, estimateMp3DurationSeconds } from "@/lib/tts/mp3";
 import { NARRATION_GENERIC_FAILURE } from "@/lib/tts/narration-failure";
 import { withTtsRetry } from "@/lib/tts/retry";
+import {
+  assembleSegments,
+  parseSegmentManifest,
+  planChapterChunks,
+  sliceSegments,
+  type PlannedChunk,
+} from "@/lib/tts/segments";
 import { normalizeSpeechSpeed } from "@/lib/tts/speed";
-import type { TextChunk, TTSProvider, VoiceDefinition } from "@/lib/tts/types";
+import type { TTSProvider, VoiceDefinition } from "@/lib/tts/types";
 import { recordTtsCharacters } from "@/lib/usage/usage.service";
 
 const USER_SAFE_FAILURE = NARRATION_GENERIC_FAILURE;
@@ -66,13 +67,13 @@ export async function runTtsJob(jobId: string): Promise<void> {
       chapter.selectedSpeed == null ? undefined : Number(chapter.selectedSpeed),
     );
 
-    const chunks = chunkText(chapter.sourceText, {
-      maxCharacters: provider.limits.targetCharacters,
-      maxBytes: provider.limits.maxBytes,
-    });
+    const rules = await loadActivePronunciationRules(job.projectId, job.project.userId);
+    const chunks = planChapterChunks({ text: chapter.sourceText, provider, voice, speed, rules });
     if (chunks.length === 0) {
       throw new AppError("TTS_INVALID_REQUEST", USER_SAFE_FAILURE, 400);
     }
+    const retryParagraphs = parseRetryParagraphs(job.retryParagraphs);
+    const previousSegments = await loadPreviousSegments(chapter.currentAudioFileId);
 
     await prisma.generationJob.update({
       where: { id: job.id },
@@ -95,19 +96,13 @@ export async function runTtsJob(jobId: string): Promise<void> {
     });
 
     const context: ChunkContext = { jobId: job.id, provider, model, voice, speed };
-    const audioParts: Buffer[] = [];
-    let characters = 0;
-    let billableCharacters = 0;
-    let providerBilledCharacters = 0;
-    for (const chunk of chunks) {
+    const results = await mapWithConcurrency(chunks, maxConcurrencyFor(provider.id), async (chunk) => {
       await touchTtsJob(job.id);
-      const result = await produceChunkAudio(context, chunk);
-      audioParts.push(result.audio);
-      characters += chunk.characterCount;
-      if (!result.cached) {
-        billableCharacters += chunk.characterCount;
-        providerBilledCharacters += provider.billableCharacters(chunk.text);
-      }
+      const fresh = retryParagraphs.has(chunk.paragraph);
+      const reused = fresh ? undefined : previousSegments.get(chunk.cacheKey);
+      const result: ChunkAudio = reused
+        ? { audio: reused, cached: true }
+        : await produceChunkAudio(context, chunk, { bypassCache: fresh });
       await prisma.generationJob.update({
         where: { id: job.id },
         data: {
@@ -115,9 +110,28 @@ export async function runTtsJob(jobId: string): Promise<void> {
           ...(result.cached ? { cachedChunks: { increment: 1 } } : {}),
         },
       });
-    }
+      return result;
+    });
 
-    const audio = concatMp3Buffers(audioParts);
+    let characters = 0;
+    let billableCharacters = 0;
+    let providerBilledCharacters = 0;
+    chunks.forEach((chunk, index) => {
+      characters += chunk.characterCount;
+      if (!results[index].cached) {
+        billableCharacters += chunk.characterCount;
+        providerBilledCharacters += provider.billableCharacters(chunk.text);
+      }
+    });
+
+    const { audio, manifest } = assembleSegments(
+      chunks.map((chunk, index) => ({
+        paragraph: chunk.paragraph,
+        cacheKey: chunk.cacheKey,
+        audio: results[index].audio,
+      })),
+      { voiceId: voice.id, speed },
+    );
     const durationSeconds =
       estimateMp3DurationSeconds(audio) ?? estimateDurationFromCharacters(characters);
     const audioFileId = randomUUID();
@@ -162,6 +176,7 @@ export async function runTtsJob(jobId: string): Promise<void> {
           providerVoiceId: voice.providerVoiceId,
           generationJobId: job.id,
           version,
+          segmentManifest: manifest,
         },
       });
       await tx.chapter.update({
@@ -259,20 +274,15 @@ export async function runTtsJob(jobId: string): Promise<void> {
   }
 }
 
-async function produceChunkAudio(context: ChunkContext, chunk: TextChunk): Promise<ChunkAudio> {
+async function produceChunkAudio(
+  context: ChunkContext,
+  chunk: PlannedChunk,
+  options: { bypassCache: boolean },
+): Promise<ChunkAudio> {
   const { provider, model, voice, speed } = context;
-  const key = buildTtsCacheKey({
-    provider: provider.id,
-    providerModel: model,
-    providerVoiceId: voice.providerVoiceId,
-    language: voice.languageCode,
-    speed,
-    pitch: DEFAULT_PITCH,
-    volume: DEFAULT_VOLUME,
-    text: chunk.text,
-  });
+  const key = { cacheKey: chunk.cacheKey, textHash: chunk.textHash };
 
-  const cached = await readTtsCache(key.cacheKey);
+  const cached = options.bypassCache ? null : await readTtsCache(key.cacheKey);
   if (cached) {
     return { audio: cached.audio, cached: true };
   }
@@ -321,6 +331,68 @@ async function produceChunkAudio(context: ChunkContext, chunk: TextChunk): Promi
     durationSeconds,
   });
   return { audio, cached: false };
+}
+
+function parseRetryParagraphs(value: unknown): Set<number> {
+  if (!Array.isArray(value)) {
+    return new Set();
+  }
+  return new Set(value.filter((item): item is number => Number.isInteger(item) && item >= 0));
+}
+
+/** Segments of the chapter's current audio, keyed by cache key; empty when there is nothing to reuse. */
+async function loadPreviousSegments(audioFileId: string | null): Promise<Map<string, Buffer>> {
+  if (!audioFileId) {
+    return new Map();
+  }
+  try {
+    const file = await prisma.audioFile.findUnique({
+      where: { id: audioFileId },
+      select: { objectKey: true, segmentManifest: true },
+    });
+    const manifest = parseSegmentManifest(file?.segmentManifest);
+    if (!file || !manifest || manifest.segments.length === 0) {
+      return new Map();
+    }
+    return sliceSegments(await getStorage().getObject(file.objectKey), manifest);
+  } catch (error) {
+    console.info("tts_previous_segments_unavailable", {
+      audioFileId,
+      message: error instanceof Error ? error.message.slice(0, 200) : "unknown",
+    });
+    return new Map();
+  }
+}
+
+/** Runs `task` over `items` with at most `limit` in flight; stops starting new items after the first failure. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  task: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  let failed = false;
+  const worker = async () => {
+    while (!failed && next < items.length) {
+      const index = next;
+      next += 1;
+      try {
+        results[index] = await task(items[index]);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  };
+  const settled = await Promise.allSettled(
+    Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker),
+  );
+  const rejected = settled.find((outcome) => outcome.status === "rejected");
+  if (rejected) {
+    throw rejected.reason;
+  }
+  return results;
 }
 
 function maxConcurrencyFor(providerId: string): number {

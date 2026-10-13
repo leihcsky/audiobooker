@@ -1,5 +1,5 @@
 // Local testing only: adds purchased premium minutes to an account, as a
-// minute pack would, until real billing (Creem) is connected. Usage:
+// minute pack would, without going through Waffo checkout. Usage:
 //   npm run billing:grant-minutes -- you@example.com 30
 import { randomUUID } from "node:crypto";
 import prismaClient from "../generated/prisma/index.js";

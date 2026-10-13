@@ -149,14 +149,14 @@ describe("project API", () => {
     });
   });
 
-  it("rejects a missing title with VALIDATION_ERROR", async () => {
+  it("rejects an overlong title with VALIDATION_ERROR", async () => {
     requireSession.mockResolvedValue({ id: ownerId });
 
     const response = await POST(
       new Request("http://localhost/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ title: "a".repeat(256) }),
       }),
     );
 

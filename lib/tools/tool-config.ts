@@ -294,7 +294,7 @@ export const SEO_TOOLS: SeoToolConfig[] = [
       {
         question: "Can I convert an EPUB to an audiobook for free?",
         answer:
-          "Yes. Upload an EPUB, narrate it within the free session's allowance, and download the result without creating an account. Save the project to a free account to finish longer books in Studio.",
+          "Yes. Without an account you can narrate and download the first chapters of an EPUB. Create a free account to narrate the whole book; the chapters you've already made move with it.",
       },
       {
         question: "Can I convert EPUB to M4B?",
@@ -407,7 +407,7 @@ export const SEO_TOOLS: SeoToolConfig[] = [
       {
         question: "Can I convert a PDF to an audiobook for free?",
         answer:
-          "Yes. Upload a PDF, narrate it within the free session's allowance, and download the audio without creating an account. Save the project to a free account to finish long documents in Studio.",
+          "Yes. Without an account you can narrate and download the first chapters of a PDF. Create a free account to narrate the whole document; the chapters you've already made move with it.",
       },
       {
         question: "Can I convert a scanned PDF?",
@@ -520,12 +520,12 @@ export const SEO_TOOLS: SeoToolConfig[] = [
       {
         question: "Is it free to convert an ebook to an audiobook?",
         answer:
-          "Yes, to get started. A free session includes a narration allowance and lets you listen and download without an account. A free account adds a larger monthly allowance for long books.",
+          "Yes. Without an account you can narrate, listen to, and download the first chapters of a book. A free account lets you narrate the whole book with standard voices.",
       },
       {
-        question: "What if my ebook is longer than the free allowance?",
+        question: "What if my ebook is longer than the free preview?",
         answer:
-          "Generate the chapters that fit today; finished chapters stay with the project. Save it to a free account to narrate the rest in Studio.",
+          "Chapters that don't fit are marked \"Free account\". Create a free account to narrate them in Studio; the chapters you've already made stay with the project.",
       },
       {
         question: "Will the audiobook sound natural?",

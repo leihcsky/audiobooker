@@ -14,12 +14,16 @@ const readTtsCache = vi.hoisted(() => vi.fn());
 const writeTtsCache = vi.hoisted(() => vi.fn());
 const recordTtsCharacters = vi.hoisted(() => vi.fn());
 const putObject = vi.hoisted(() => vi.fn());
+const loadActivePronunciationRules = vi.hoisted(() => vi.fn());
+const audioFindUnique = vi.hoisted(() => vi.fn());
+const audioFileCreate = vi.hoisted(() => vi.fn());
+const getObject = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     generationJob: { findUnique: jobFindUnique, update: jobUpdate },
     chapter: { findUnique: chapterFindUnique, update: chapterUpdate },
-    audioFile: { aggregate: audioAggregate, create: vi.fn() },
+    audioFile: { aggregate: audioAggregate, create: vi.fn(), findUnique: audioFindUnique },
     $transaction: transaction,
   },
 }));
@@ -39,12 +43,16 @@ vi.mock("@/lib/tts/cache", async (importOriginal) => {
 });
 
 vi.mock("@/lib/storage", () => ({
-  getStorage: () => ({ putObject }),
+  getStorage: () => ({ putObject, getObject }),
 }));
 
 vi.mock("@/lib/usage/usage.service", () => ({ recordTtsCharacters }));
 
+vi.mock("@/lib/pronunciation/pronunciation.service", () => ({ loadActivePronunciationRules }));
+
 import { runTtsJob } from "@/lib/jobs/tts.runner";
+import { assembleSegments, planChapterChunks } from "@/lib/tts/segments";
+import type { TTSProvider, VoiceDefinition } from "@/lib/tts/types";
 
 function mp3Frames(count: number): Buffer {
   const frameLength = 417;
@@ -81,6 +89,7 @@ function queuedJob(
   sourceText: string,
   currentAudioFileId: string | null = null,
   tier: "STANDARD" | "PREMIUM" = "STANDARD",
+  retryParagraphs: number[] | null = null,
 ) {
   return {
     id: "job-9",
@@ -90,6 +99,7 @@ function queuedJob(
     chapterId: "chapter-1",
     voiceId: "edge-en-us-ava",
     estimatedCost: null,
+    retryParagraphs,
     chapter: {
       id: "chapter-1",
       sourceText,
@@ -109,10 +119,11 @@ describe("runTtsJob", () => {
     audioAggregate.mockResolvedValue({ _max: { version: null } });
     readTtsCache.mockResolvedValue(null);
     writeTtsCache.mockResolvedValue(undefined);
+    loadActivePronunciationRules.mockResolvedValue([]);
     transaction.mockImplementation(async (input: unknown) => {
       if (typeof input === "function") {
         return input({
-          audioFile: { create: vi.fn() },
+          audioFile: { create: audioFileCreate },
           chapter: { update: chapterUpdate },
           generationJob: { update: jobUpdate },
         });
@@ -205,6 +216,90 @@ describe("runTtsJob", () => {
         actualCost: 0,
       }),
     );
+  });
+
+  it("speaks pronunciation rules and charges the replaced characters", async () => {
+    jobFindUnique.mockResolvedValue(queuedJob("Hi Hermione."));
+    loadActivePronunciationRules.mockResolvedValue([
+      { term: "Hermione", replacement: "Her-MY-oh-nee", caseSensitive: false, wholeWord: true },
+    ]);
+    generate.mockResolvedValue({ audio: mp3Frames(20), characterCount: 17 });
+
+    await runTtsJob("job-9");
+
+    expect(loadActivePronunciationRules).toHaveBeenCalledWith("project-1", null);
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ text: "Hi Her-MY-oh-nee." }));
+    expect(recordTtsCharacters).toHaveBeenCalledWith(
+      expect.objectContaining({ characters: "Hi Her-MY-oh-nee.".length }),
+    );
+  });
+
+  describe("segments", () => {
+    function previousAudio(text: string) {
+      const chunks = planChapterChunks({
+        text,
+        provider: provider as unknown as TTSProvider,
+        voice: voice as unknown as VoiceDefinition,
+        speed: 1,
+        rules: [],
+      });
+      return assembleSegments(
+        chunks.map((chunk) => ({ paragraph: chunk.paragraph, cacheKey: chunk.cacheKey, audio: mp3Frames(30) })),
+        { voiceId: voice.id, speed: 1 },
+      );
+    }
+
+    it("copies unchanged paragraphs from the current audio and stores a manifest", async () => {
+      const old = previousAudio("First sentence.\n\nOld second.");
+      audioFindUnique.mockResolvedValue({ objectKey: "old.mp3", segmentManifest: old.manifest });
+      getObject.mockResolvedValue(old.audio);
+      jobFindUnique.mockResolvedValue(queuedJob("First sentence.\n\nSecond sentence.", "audio-1"));
+      generate.mockResolvedValue({ audio: mp3Frames(20), characterCount: 16 });
+
+      await runTtsJob("job-9");
+
+      expect(getObject).toHaveBeenCalledWith("old.mp3");
+      expect(generate).toHaveBeenCalledTimes(1);
+      expect(generate).toHaveBeenCalledWith(expect.objectContaining({ text: "Second sentence." }));
+      expect(readTtsCache).toHaveBeenCalledTimes(1);
+      const manifest = audioFileCreate.mock.calls[0][0].data.segmentManifest;
+      expect(manifest).toMatchObject({ version: 1, voiceId: voice.id, speed: 1 });
+      expect(manifest.segments.map((segment: { paragraph: number }) => segment.paragraph)).toEqual([0, 1]);
+      expect(recordTtsCharacters).toHaveBeenCalledWith(
+        expect.objectContaining({ characters: "Second sentence.".length }),
+      );
+    });
+
+    it("re-reads a retried paragraph without the cache or the old audio", async () => {
+      const text = "First sentence.\n\nSecond sentence.";
+      const old = previousAudio(text);
+      audioFindUnique.mockResolvedValue({ objectKey: "old.mp3", segmentManifest: old.manifest });
+      getObject.mockResolvedValue(old.audio);
+      jobFindUnique.mockResolvedValue(queuedJob(text, "audio-1", "STANDARD", [1]));
+      generate.mockResolvedValue({ audio: mp3Frames(20), characterCount: 16 });
+
+      await runTtsJob("job-9");
+
+      expect(generate).toHaveBeenCalledTimes(1);
+      expect(generate).toHaveBeenCalledWith(expect.objectContaining({ text: "Second sentence." }));
+      expect(readTtsCache).not.toHaveBeenCalled();
+      expect(writeTtsCache).toHaveBeenCalledTimes(1);
+    });
+
+    it("falls back to synthesis when the old audio cannot be read", async () => {
+      const old = previousAudio("Hello there.");
+      audioFindUnique.mockResolvedValue({ objectKey: "old.mp3", segmentManifest: old.manifest });
+      getObject.mockRejectedValue(new Error("missing"));
+      jobFindUnique.mockResolvedValue(queuedJob("Hello there.", "audio-1"));
+      generate.mockResolvedValue({ audio: mp3Frames(20), characterCount: 12 });
+
+      await runTtsJob("job-9");
+
+      expect(generate).toHaveBeenCalledTimes(1);
+      expect(chapterUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: "READY", audioOutdated: false }) }),
+      );
+    });
   });
 
   it("fails the job without charging when the provider returns unreadable audio", async () => {

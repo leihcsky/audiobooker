@@ -2,6 +2,7 @@ import { FILE_LIMITS } from "@/lib/config/limits";
 import { AppError, parseFailed } from "@/lib/api/errors";
 import { prisma } from "@/lib/db/prisma";
 import { parseDocument } from "@/lib/parser/registry";
+import { titleAfterParse } from "@/lib/projects/project-title";
 import { getStorage } from "@/lib/storage";
 import { buildCoverObjectKey } from "@/lib/storage/keys";
 import { storageOwnerFromProject } from "@/lib/tools/storage-owner";
@@ -85,7 +86,12 @@ export async function ingestSourceFile(input: {
       where: { id: input.projectId },
       data: {
         status: "READY",
-        title: parsed.metadata.title?.slice(0, 255) || project.title,
+        title: titleAfterParse({
+          current: project.title,
+          titleSetByUser: project.titleSetByUser,
+          bookTitle: parsed.metadata.title,
+          filename: source.originalFilename,
+        }),
         author: project.author ?? parsed.metadata.author ?? null,
         language: parsed.metadata.language
           ? parsed.metadata.language.slice(0, 20)
@@ -130,6 +136,10 @@ async function saveExtractedCover(
   });
   await prisma.project.update({
     where: { id: project.id },
-    data: { coverObjectKey: objectKey },
+    data: {
+      coverObjectKey: objectKey,
+      coverWidth: detected.dimensions.width,
+      coverHeight: detected.dimensions.height,
+    },
   });
 }

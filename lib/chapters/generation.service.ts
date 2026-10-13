@@ -30,6 +30,10 @@ export async function startChapterGeneration(input: {
   voiceId: string;
   speed?: number;
   quality?: TtsTier;
+  /** Characters expected to reach the provider when most segments are reused; defaults to the whole chapter. */
+  synthesisCharacters?: number;
+  /** Paragraph indexes to re-synthesize with reuse and the cache bypassed. */
+  retryParagraphs?: number[];
 }): Promise<JobSummary> {
   const actor = input.actor ?? (input.userId ? { type: "user" as const, userId: input.userId } : null);
   if (!actor) {
@@ -104,22 +108,26 @@ export async function startChapterGeneration(input: {
   const speed = normalizeSpeechSpeed(input.speed ?? Number(chapter.selectedSpeed));
   const premium = voice.tier === "premium";
   const premiumUserId = premium && actor.type === "user" ? actor.userId : null;
+  const synthesisCharacters = Math.max(1, Math.min(input.synthesisCharacters ?? characterCount, characterCount));
   const premiumSeconds = premium
-    ? estimatePremiumSeconds({ characters: characterCount, languageCode: voice.languageCode })
+    ? estimatePremiumSeconds({ characters: synthesisCharacters, languageCode: voice.languageCode })
     : 0;
 
   if (actor.type === "anonymous") {
     await assertAnonymousJobConcurrency(actor.sessionId);
   }
   if (!premium) {
-    await assertStandardCapacityForActor(actor, characterCount);
+    await assertStandardCapacityForActor(actor, synthesisCharacters);
   }
   if (provider.id === EDGE_PROVIDER_ID) {
-    await assertEdgeDailyCapacity(characterCount);
+    await assertEdgeDailyCapacity(synthesisCharacters);
   }
 
   const estimate = provider.estimateCost({
-    characters: provider.billableCharacters(chapter.sourceText),
+    characters:
+      input.synthesisCharacters === undefined
+        ? provider.billableCharacters(chapter.sourceText)
+        : synthesisCharacters,
     purpose: "generate",
   });
   if (premium) {
@@ -143,6 +151,7 @@ export async function startChapterGeneration(input: {
         inputCharacters: characterCount,
         estimatedCost: estimate.estimatedCost,
         currency: estimate.currency,
+        ...(input.retryParagraphs?.length ? { retryParagraphs: input.retryParagraphs } : {}),
       },
     });
     await tx.chapter.update({

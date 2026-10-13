@@ -3,7 +3,7 @@ export type BudgetChapter = {
   title: string;
   orderIndex: number;
   characterCount: number;
-  wordCount: number;
+  estimatedSeconds: number;
   included: boolean;
   hasAudio: boolean;
 };
@@ -12,7 +12,7 @@ export type NarrationBudgetPlan = {
   toGenerate: BudgetChapter[];
   beyondBudget: BudgetChapter[];
   characters: number;
-  words: number;
+  estimatedSeconds: number;
 };
 
 export function planNarrationWithinBudget(
@@ -43,6 +43,6 @@ export function planNarrationWithinBudget(
     toGenerate,
     beyondBudget,
     characters,
-    words: toGenerate.reduce((sum, chapter) => sum + chapter.wordCount, 0),
+    estimatedSeconds: toGenerate.reduce((sum, chapter) => sum + chapter.estimatedSeconds, 0),
   };
 }

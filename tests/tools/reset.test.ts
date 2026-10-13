@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const projectFindMany = vi.hoisted(() => vi.fn());
-const projectDelete = vi.hoisted(() => vi.fn());
+const projectUpdateMany = vi.hoisted(() => vi.fn());
+const jobUpdateMany = vi.hoisted(() => vi.fn());
 const deleteObject = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
-    project: { findMany: projectFindMany, delete: projectDelete },
+    project: { findMany: projectFindMany, updateMany: projectUpdateMany },
+    generationJob: { updateMany: jobUpdateMany },
   },
 }));
 
@@ -21,20 +23,12 @@ const sessionId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 describe("resetAnonymousToolWorkspace", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    deleteObject.mockResolvedValue(undefined);
-    projectDelete.mockResolvedValue({});
+    projectUpdateMany.mockResolvedValue({ count: 1 });
+    jobUpdateMany.mockResolvedValue({ count: 0 });
   });
 
-  it("deletes the anonymous session project and stored objects", async () => {
-    projectFindMany.mockResolvedValue([
-      {
-        id: "anon-1",
-        coverObjectKey: "anonymous/s/projects/anon-1/cover/cover.jpg",
-        sourceFiles: [{ objectKey: "src" }],
-        audioFiles: [{ objectKey: "audio" }],
-        exports: [{ objectKey: "export" }],
-      },
-    ]);
+  it("soft-deletes the session's project, cancels its pending work and keeps its files", async () => {
+    projectFindMany.mockResolvedValue([{ id: "anon-1" }]);
 
     await expect(
       resetAnonymousToolWorkspace({ type: "anonymous", sessionId }),
@@ -42,18 +36,25 @@ describe("resetAnonymousToolWorkspace", () => {
 
     expect(projectFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { anonymousSessionId: sessionId, userId: null },
+        where: { anonymousSessionId: sessionId, userId: null, deletedAt: null },
       }),
     );
-    expect(deleteObject).toHaveBeenCalledTimes(4);
-    expect(projectDelete).toHaveBeenCalledWith({ where: { id: "anon-1" } });
+    expect(projectUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: ["anon-1"] }, deletedAt: null } }),
+    );
+    expect(jobUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ projectId: { in: ["anon-1"] } }),
+      }),
+    );
+    expect(deleteObject).not.toHaveBeenCalled();
   });
 
-  it("does not delete Studio projects for signed-in users", async () => {
+  it("does not touch Studio projects for signed-in users", async () => {
     await expect(
       resetAnonymousToolWorkspace({ type: "user", userId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }),
     ).resolves.toEqual({ projectId: null });
     expect(projectFindMany).not.toHaveBeenCalled();
-    expect(projectDelete).not.toHaveBeenCalled();
+    expect(projectUpdateMany).not.toHaveBeenCalled();
   });
 });

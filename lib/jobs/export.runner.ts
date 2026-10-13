@@ -1,15 +1,20 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Prisma } from "@/generated/prisma";
 import { AppError } from "@/lib/api/errors";
 import { FILE_LIMITS } from "@/lib/config/limits";
 import { prisma } from "@/lib/db/prisma";
 import { FfmpegError } from "@/lib/audio/ffmpeg";
+import { isMasteringPresetId } from "@/lib/audio/mastering-preset";
+import { buildPublishPackage } from "@/lib/export/publish-package";
+import type { QcReport } from "@/lib/export/qc-report";
 import { buildMetadataText, type AudiobookMetadata } from "@/lib/export/ffmetadata";
 import { chapterZipEntryName } from "@/lib/export/filenames";
 import { loadExportableChapters } from "@/lib/export/export.service";
 import { buildM4b } from "@/lib/export/m4b";
 import { buildChapterZip } from "@/lib/export/zip";
+import { effectiveAiDisclosure } from "@/lib/publish/disclosure";
 import { getStorage } from "@/lib/storage";
 import { buildExportObjectKey } from "@/lib/storage/keys";
 
@@ -23,6 +28,7 @@ function toMetadata(project: {
   description: string | null;
   publisher: string | null;
   copyright: string | null;
+  aiDisclosure: string | null;
 }): AudiobookMetadata {
   return {
     title: project.title,
@@ -32,6 +38,7 @@ function toMetadata(project: {
     description: project.description,
     publisher: project.publisher,
     copyright: project.copyright,
+    aiDisclosure: effectiveAiDisclosure(project.aiDisclosure),
   };
 }
 
@@ -134,8 +141,23 @@ export async function runExportJob(jobId: string): Promise<void> {
     let objectFilename: "chapters.zip" | "audiobook.m4b";
     let durationSeconds: number | null = null;
     let contentType: string;
+    let qcReport: QcReport | null = null;
 
-    if (job.type === "EXPORT_MP3") {
+    if (job.type === "EXPORT_MP3" && isMasteringPresetId(exportRecord.masteringPreset)) {
+      const outputPath = join(workDir, "publish.zip");
+      qcReport = await buildPublishPackage({
+        workDir,
+        outputPath,
+        project: job.project,
+        chapters: downloaded.map((chapter) => ({ filename: chapter.filename, title: chapter.title })),
+        creditsVoice: { voiceId: chapters[0]?.voiceId ?? null, speed: chapters[0]?.speed ?? 1 },
+        metadataText: buildMetadataText(metadata),
+      });
+      output = await readFile(outputPath);
+      objectFilename = "chapters.zip";
+      contentType = "application/zip";
+      durationSeconds = qcReport.totalDurationSeconds;
+    } else if (job.type === "EXPORT_MP3") {
       output = await buildChapterZip({
         entries: downloaded.map((chapter, index) => ({
           filename: chapterZipEntryName(chapters[index]?.orderIndex ?? index + 1, chapter.title),
@@ -206,6 +228,7 @@ export async function runExportJob(jobId: string): Promise<void> {
           expiresAt,
           completedAt,
           errorMessage: null,
+          ...(qcReport ? { qcReport: qcReport as unknown as Prisma.InputJsonValue } : {}),
         },
       }),
     ]);
@@ -215,6 +238,8 @@ export async function runExportJob(jobId: string): Promise<void> {
       exportId: exportRecord.id,
       type: job.type,
       sizeBytes: output.length,
+      masteringPreset: exportRecord.masteringPreset,
+      qcVerdict: qcReport?.verdict,
     });
   } catch (error) {
     const code =

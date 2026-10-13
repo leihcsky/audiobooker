@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CheckoutButton } from "@/components/billing/checkout-button";
 import { auth } from "@/lib/auth/auth";
 import { MINUTE_PACKS, type MinutePack } from "@/lib/billing/credit-packs";
 import { getUserPlan } from "@/lib/billing/entitlements";
@@ -23,6 +24,15 @@ function features(plan: PlanDefinition): string[] {
     "Chapter editing and regeneration",
     "MP3 and M4B export",
   ];
+  if (plan.publishMastering) {
+    list.push("Publish-ready MP3 for Spotify and Google Play, with a quality report");
+  }
+  if (plan.pronunciationDictionary) {
+    list.push("Pronunciation dictionary for names and invented words");
+  }
+  if (plan.paragraphFix) {
+    list.push("Fix one paragraph without regenerating the chapter");
+  }
   const minutes = remainingMinutes(plan.premiumSecondsPerPeriod);
   if (minutes > 0) {
     list.push(`${minutes} premium minutes each billing period, rolling over one period`);
@@ -100,9 +110,10 @@ function PlanAction({
   signedIn: boolean;
 }) {
   if (current) {
+    const paid = plan.monthlyPriceUsd > 0;
     return (
-      <Link href="/studio" className={`${BUTTON_CLASS} border border-border hover:bg-muted`}>
-        Open Studio
+      <Link href={paid ? "/studio/billing" : "/studio"} className={`${BUTTON_CLASS} border border-border hover:bg-muted`}>
+        {paid ? "Manage billing" : "Open Studio"}
       </Link>
     );
   }
@@ -113,7 +124,14 @@ function PlanAction({
       </Link>
     );
   }
-  return <CheckoutSoon label="Creator checkout opens soon." />;
+  if (!signedIn) {
+    return (
+      <Link href="/signup" className={`${BUTTON_CLASS} bg-primary text-primary-foreground hover:bg-primary/90`}>
+        Create a free account to upgrade
+      </Link>
+    );
+  }
+  return <CheckoutButton item="creator">Upgrade to {plan.name}</CheckoutButton>;
 }
 
 function MinutePacks({ creator, signedIn }: { creator: boolean; signedIn: boolean }) {
@@ -123,6 +141,9 @@ function MinutePacks({ creator, signedIn }: { creator: boolean; signedIn: boolea
         <h2 className="font-serif text-3xl tracking-tight">Premium minute packs</h2>
         <p className="mt-2 text-muted-foreground">
           One-time purchase for any account. Purchased minutes never expire.
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          1 premium minute = 1 minute of finished audio in a premium voice. Standard voices are included with fair use.
         </p>
       </div>
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -151,7 +172,9 @@ function PackCard({ pack, creator, signedIn }: { pack: MinutePack; creator: bool
       </p>
       <div className="mt-4">
         {signedIn ? (
-          <CheckoutSoon label="Checkout opens soon." />
+          <CheckoutButton item={pack.id} variant="outline">
+            Buy {pack.name}
+          </CheckoutButton>
         ) : (
           <Link href="/signup" className={`${BUTTON_CLASS} border border-border hover:bg-muted`}>
             Create a free account
@@ -159,13 +182,5 @@ function PackCard({ pack, creator, signedIn }: { pack: MinutePack; creator: bool
         )}
       </div>
     </div>
-  );
-}
-
-function CheckoutSoon({ label }: { label: string }) {
-  return (
-    <p className="rounded-md border border-dashed border-border px-4 py-2.5 text-center text-sm text-muted-foreground">
-      {label}
-    </p>
   );
 }

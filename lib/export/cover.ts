@@ -46,7 +46,11 @@ export async function uploadProjectCover(input: {
 
   await prisma.project.update({
     where: { id: project.id },
-    data: { coverObjectKey: objectKey },
+    data: {
+      coverObjectKey: objectKey,
+      coverWidth: detected.dimensions.width,
+      coverHeight: detected.dimensions.height,
+    },
   });
 
   const signed = await storage.createDownloadUrl({

@@ -5,6 +5,7 @@ import { assertCanCreateProject } from "@/lib/billing/entitlements";
 import { prisma } from "@/lib/db/prisma";
 import { assertProjectAccess } from "@/lib/tools/access";
 import { toProjectDto, type ProjectDto } from "@/lib/projects/project.dto";
+import { DEFAULT_PROJECT_TITLE } from "@/lib/projects/project-title";
 import { createProject } from "@/lib/projects/project.service";
 import type { CreateProjectInput } from "@/lib/validation/project";
 
@@ -14,13 +15,14 @@ export async function createProjectForActor(
 ): Promise<ProjectDto> {
   if (actor.type === "user") {
     await assertCanCreateProject(actor.userId);
-    return createProject(actor.userId, input);
+    return createProject(actor.userId, input, { automaticTitle: true });
   }
 
   const existing = await prisma.project.count({
     where: {
       anonymousSessionId: actor.sessionId,
       userId: null,
+      deletedAt: null,
     },
   });
   if (existing >= FILE_LIMITS.MAX_ANONYMOUS_PROJECTS) {
@@ -35,7 +37,7 @@ export async function createProjectForActor(
       userId: null,
       anonymousSessionId: actor.sessionId,
       expiresAt,
-      title: input.title.trim(),
+      title: input.title?.trim() || DEFAULT_PROJECT_TITLE,
       author: input.author?.trim() || null,
       description: input.description?.trim() || null,
       language: input.language?.trim().toLowerCase() || "en",
@@ -58,6 +60,7 @@ export async function getCurrentAnonymousProjectId(sessionId: string): Promise<s
     where: {
       anonymousSessionId: sessionId,
       userId: null,
+      deletedAt: null,
     },
     orderBy: { createdAt: "desc" },
     select: { id: true, expiresAt: true },
@@ -79,7 +82,7 @@ export async function claimProjectForUser(
   const project = await prisma.project.findUnique({
     where: { id: projectId },
   });
-  if (!project) {
+  if (!project || project.deletedAt) {
     throw projectNotFound();
   }
   if (project.userId === userId) {
@@ -115,6 +118,7 @@ export async function claimSessionProjectsForUser(
     where: {
       anonymousSessionId: sessionId,
       userId: null,
+      deletedAt: null,
     },
   });
   const claimed: ProjectDto[] = [];

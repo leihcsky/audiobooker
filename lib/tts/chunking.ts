@@ -1,4 +1,5 @@
 import { ttsInvalidRequest } from "@/lib/api/errors";
+import { hasSpeakableText, splitParagraphs } from "@/lib/chapters/paragraphs";
 import type { ChunkOptions, TextChunk } from "@/lib/tts/types";
 
 const SENTENCE_SPLIT = /(?<=[.!?…。！？；;])(?:\s+|$)|(?<=[。！？；])/;
@@ -15,31 +16,43 @@ export function chunkText(text: string, options: ChunkOptions): TextChunk[] {
     throw ttsInvalidRequest("Chunk byte limit must be a positive integer.");
   }
 
-  const normalized = text.replace(/\r\n/g, "\n").trim();
-  if (!normalized) {
-    return [];
-  }
-
   const fits: Fits = (value) =>
     value.length <= maxCharacters &&
     (maxBytes === undefined || Buffer.byteLength(value, "utf8") <= maxBytes);
 
-  const packed: string[] = [];
-  for (const paragraph of splitParagraphs(normalized)) {
-    splitToFit(paragraph, fits).forEach((piece, index) => {
-      appendPacked(packed, piece, fits, index === 0 ? "\n\n" : " ");
-    });
-  }
-
-  return packed.map((chunk, index) => ({
-    index,
-    text: chunk,
-    characterCount: chunk.length,
-  }));
+  const chunks: TextChunk[] = [];
+  splitParagraphs(text).forEach((paragraph, paragraphIndex) => {
+    if (!hasSpeakableText(paragraph)) {
+      return;
+    }
+    for (const piece of packPieces(splitToFit(paragraph, fits), fits)) {
+      chunks.push({
+        index: chunks.length,
+        paragraph: paragraphIndex,
+        text: piece,
+        characterCount: piece.length,
+      });
+    }
+  });
+  return chunks;
 }
 
-function splitParagraphs(text: string): string[] {
-  return text.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+/**
+ * Packs the pieces of one paragraph. Paragraphs are never packed together,
+ * so editing one paragraph leaves every other chunk (and its cache key) as is.
+ */
+function packPieces(pieces: string[], fits: Fits): string[] {
+  const packed: string[] = [];
+  for (const piece of pieces) {
+    const last = packed[packed.length - 1];
+    const joined = last === undefined ? piece : `${last} ${piece}`;
+    if (last !== undefined && fits(joined)) {
+      packed[packed.length - 1] = joined;
+    } else {
+      packed.push(piece);
+    }
+  }
+  return packed;
 }
 
 function splitToFit(text: string, fits: Fits): string[] {
@@ -115,18 +128,4 @@ function splitHard(token: string, fits: Fits): string[] {
     pieces.push(current);
   }
   return pieces;
-}
-
-function appendPacked(packed: string[], piece: string, fits: Fits, separator: string): void {
-  const last = packed[packed.length - 1];
-  if (!last) {
-    packed.push(piece);
-    return;
-  }
-  const joined = `${last}${separator}${piece}`;
-  if (fits(joined)) {
-    packed[packed.length - 1] = joined;
-    return;
-  }
-  packed.push(piece);
 }

@@ -1,5 +1,5 @@
-// Local testing only: switches an account between Free and Creator until
-// real billing (Creem) is connected. Usage:
+// Local testing only: switches an account between Free and Creator without
+// going through Waffo checkout (manual subscriptions). Usage:
 //   npm run billing:set-plan -- you@example.com creator
 //   npm run billing:set-plan -- you@example.com free
 import prismaClient from "../generated/prisma/index.js";

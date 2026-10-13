@@ -7,6 +7,7 @@ import { signOut } from "next-auth/react";
 const ITEMS = [
   { href: "/studio", label: "Studio" },
   { href: "/studio/projects", label: "Projects" },
+  { href: "/studio/billing", label: "Billing" },
   { href: "/pricing", label: "Pricing" },
 ];
 

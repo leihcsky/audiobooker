@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     "unpdf",
     "msedge-tts",
   ],
+  allowedDevOrigins: ["*.ngrok-free.dev", "*.ngrok-free.app"],
 };
 
 export default nextConfig;

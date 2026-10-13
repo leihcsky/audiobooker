@@ -1,4 +1,5 @@
 import type { Project } from "@/generated/prisma";
+import { effectiveAiDisclosure } from "@/lib/publish/disclosure";
 
 export type ProjectDto = {
   id: string;
@@ -9,6 +10,8 @@ export type ProjectDto = {
   narrator: string | null;
   publisher: string | null;
   copyright: string | null;
+  aiDisclosure: string | null;
+  effectiveAiDisclosure: string;
   hasCover: boolean;
   status: Project["status"];
   createdAt: string;
@@ -25,6 +28,8 @@ export function toProjectDto(project: Project): ProjectDto {
     narrator: project.narrator,
     publisher: project.publisher,
     copyright: project.copyright,
+    aiDisclosure: project.aiDisclosure,
+    effectiveAiDisclosure: effectiveAiDisclosure(project.aiDisclosure),
     hasCover: Boolean(project.coverObjectKey),
     status: project.status,
     createdAt: project.createdAt.toISOString(),

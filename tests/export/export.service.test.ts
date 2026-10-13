@@ -10,6 +10,9 @@ const exportCount = vi.hoisted(() => vi.fn());
 const jobCount = vi.hoisted(() => vi.fn());
 const transaction = vi.hoisted(() => vi.fn());
 const createDownloadUrl = vi.hoisted(() => vi.fn());
+const assertCanUsePublishMastering = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/billing/entitlements", () => ({ assertCanUsePublishMastering }));
 
 vi.mock("@/lib/storage", () => ({
   getStorage: () => ({ createDownloadUrl }),
@@ -248,5 +251,83 @@ describe("export service", () => {
       actor: { type: "anonymous", sessionId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" },
     });
     expect(started.export.id).toBe("export-9");
+  });
+
+  it("refuses a publish-ready export without the Creator plan", async () => {
+    assertCanUsePublishMastering.mockRejectedValue(
+      Object.assign(new Error("Publish-ready exports are part of the Creator plan."), {
+        code: "PLAN_REQUIRED",
+        status: 403,
+      }),
+    );
+
+    await expect(startMp3Export({ projectId, userId: ownerId, mastering: "publish" })).rejects.toMatchObject({
+      code: "PLAN_REQUIRED",
+    });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("records the mastering preset and keeps mastered and plain exports apart", async () => {
+    assertCanUsePublishMastering.mockResolvedValue(undefined);
+    const exportCreate = vi.fn(async (args: { data: Record<string, unknown> }) => ({
+      id: "export-10",
+      type: "ZIP",
+      status: "QUEUED",
+      format: "zip",
+      sizeBytes: null,
+      durationSeconds: null,
+      errorMessage: null,
+      expiresAt: null,
+      createdAt: new Date("2026-01-15T12:00:00.000Z"),
+      completedAt: null,
+      generationJobId: "job-10",
+      masteringPreset: args.data.masteringPreset,
+      qcReport: null,
+    }));
+    transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        generationJob: {
+          create: async () => ({
+            id: "job-10",
+            type: "EXPORT_MP3",
+            status: "QUEUED",
+            errorCode: null,
+            createdAt: new Date("2026-01-15T12:00:00.000Z"),
+            completedAt: null,
+          }),
+        },
+        export: { create: exportCreate },
+      }),
+    );
+
+    const started = await startMp3Export({ projectId, userId: ownerId, mastering: "publish" });
+
+    expect(exportFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ masteringPreset: "publish-v1" }) }),
+    );
+    expect(exportCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ masteringPreset: "publish-v1" }) }),
+    );
+    expect(started.export.masteringPreset).toBe("publish-v1");
+  });
+
+  it("names publish-ready downloads distinctly", async () => {
+    exportFindUnique.mockResolvedValue({
+      id: "export-1",
+      projectId,
+      type: "ZIP",
+      status: "COMPLETED",
+      objectKey: "private-key",
+      masteringPreset: "publish-v1",
+      expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+    });
+    createDownloadUrl.mockResolvedValue({
+      downloadUrl: "https://signed.example/file",
+      objectKey: "private-key",
+      expiresAt: new Date("2099-01-01T00:10:00.000Z"),
+    });
+
+    const download = await createExportDownload({ exportId: "export-1", userId: ownerId });
+    expect(download.filename).toBe("My Audiobook - publish-ready.zip");
   });
 });

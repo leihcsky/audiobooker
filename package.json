@@ -12,12 +12,16 @@
     "test:watch": "vitest",
     "billing:set-plan": "node --env-file=.env scripts/set-plan.mjs",
     "billing:grant-minutes": "node --env-file=.env scripts/grant-minutes.mjs",
+    "billing:waffo-products": "node --env-file=.env scripts/waffo-products.mjs",
+    "billing:waffo-webhook": "node --env-file=.env scripts/waffo-webhook.mjs",
+    "tts:edge-check": "node scripts/tts-edge-check.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1139.0",
     "@aws-sdk/s3-request-presigner": "^3.1139.0",
     "@prisma/client": "^6.19.3",
+    "@waffo/pancake-ts": "^0.26.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

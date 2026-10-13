@@ -148,6 +148,26 @@ export function planRequired(message: string): AppError {
   return new AppError("PLAN_REQUIRED", message, 403);
 }
 
+export function billingUnavailable(): AppError {
+  return new AppError(
+    "BILLING_UNAVAILABLE",
+    "Checkout isn't available right now. Please try again in a few minutes.",
+    503,
+  );
+}
+
+export function checkoutRateLimited(): AppError {
+  return new AppError(
+    "CHECKOUT_RATE_LIMITED",
+    "Too many checkout attempts. Please try again later.",
+    429,
+  );
+}
+
+export function invalidWebhookSignature(): AppError {
+  return new AppError("INVALID_SIGNATURE", "Invalid signature.", 401);
+}
+
 export function ttsCostLimitExceeded(
   message = "This chapter is too large for premium narration right now. Choose a standard voice or try a shorter chapter.",
 ): AppError {
@@ -204,6 +224,26 @@ export function exportAudioInvalid(): AppError {
 
 export function exportMetadataInvalid(message = "Audiobook metadata is invalid."): AppError {
   return new AppError("EXPORT_METADATA_INVALID", message, 422);
+}
+
+export function pronunciationNotFound(): AppError {
+  return new AppError("PRONUNCIATION_NOT_FOUND", "Pronunciation entry not found.", 404);
+}
+
+export function pronunciationDuplicate(): AppError {
+  return new AppError("PRONUNCIATION_DUPLICATE", "This word is already in the dictionary.", 409);
+}
+
+export function pronunciationLimitReached(limit: number): AppError {
+  return new AppError(
+    "PRONUNCIATION_LIMIT_REACHED",
+    `A project can have up to ${limit} pronunciation entries.`,
+    422,
+  );
+}
+
+export function paragraphNotFound(): AppError {
+  return new AppError("PARAGRAPH_NOT_FOUND", "Paragraph not found.", 404);
 }
 
 export function exportNotFound(): AppError {

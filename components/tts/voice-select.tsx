@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { voiceLabel } from "@/lib/voices/voice-label";
+import { groupVoices, voiceLabel } from "@/lib/voices/voice-label";
 
 export type VoiceOption = {
   id: string;
@@ -53,24 +53,15 @@ export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSele
       disabled={disabled}
     >
       {voices.length === 0 ? <option value="">Loading voices...</option> : null}
-      {(["STANDARD", "PREMIUM"] as const).map((tier) => {
-        const group = voices.filter((voice) => voice.tier === tier);
-        if (group.length === 0) {
-          return null;
-        }
-        return (
-          <optgroup
-            key={tier}
-            label={tier === "STANDARD" ? "Standard voices" : "Premium voices (uses premium minutes)"}
-          >
-            {group.map((voice) => (
-              <option key={voice.id} value={voice.id}>
-                {voiceLabel(voice)}
-              </option>
-            ))}
-          </optgroup>
-        );
-      })}
+      {groupVoices(voices).map((group) => (
+        <optgroup key={group.key} label={group.label}>
+          {group.voices.map((voice) => (
+            <option key={voice.id} value={voice.id}>
+              {voiceLabel(voice)}
+            </option>
+          ))}
+        </optgroup>
+      ))}
     </select>
   );
 }

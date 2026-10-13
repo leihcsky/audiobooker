@@ -59,6 +59,29 @@ describe("project access", () => {
     ).resolves.toEqual(project);
   });
 
+  it("treats a deleted project as missing, even for its owner", async () => {
+    const project = makeProject({ userId, deletedAt: new Date("2026-01-20T00:00:00.000Z") });
+    projectFindUnique.mockResolvedValue(project);
+
+    await expect(assertProjectAccess({ type: "user", userId }, project.id)).rejects.toMatchObject({
+      code: "PROJECT_NOT_FOUND",
+    });
+  });
+
+  it("hides a reset anonymous project from its session", async () => {
+    const project = makeProject({
+      userId: null,
+      anonymousSessionId: sessionId,
+      expiresAt: new Date("2027-01-01T00:00:00.000Z"),
+      deletedAt: new Date("2026-01-20T00:00:00.000Z"),
+    });
+    projectFindUnique.mockResolvedValue(project);
+
+    await expect(
+      assertProjectAccess({ type: "anonymous", sessionId }, project.id),
+    ).rejects.toMatchObject({ code: "PROJECT_NOT_FOUND" });
+  });
+
   it("does not treat a user project as anonymous-owned", () => {
     const project = makeProject({ userId, anonymousSessionId: null });
     expect(actorOwnsProject(project, { type: "anonymous", sessionId })).toBe(false);

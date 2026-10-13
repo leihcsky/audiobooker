@@ -24,10 +24,10 @@ export function PlanSummary({ usage }: { usage: UsageSummary }) {
           />
         </div>
         <Link
-          href="/pricing"
+          href={premium.availableSeconds < 60 ? "/studio/billing#minute-packs" : "/studio/billing"}
           className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-muted"
         >
-          {premium.availableSeconds < 60 ? "Buy minutes" : "See plans"}
+          {premium.availableSeconds < 60 ? "Buy minutes" : "Billing"}
         </Link>
       </CardContent>
     </Card>

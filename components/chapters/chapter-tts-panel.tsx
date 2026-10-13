@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,19 +14,29 @@ import { userFacingTtsError } from "@/lib/tts/tts-error-copy";
 import { PremiumEstimate } from "@/components/billing/premium-estimate";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
 import { useVoiceOptions, VoiceSelect } from "@/components/tts/voice-select";
+import { useVoicePreview, VoicePreviewButton, VoicePreviewPlayer } from "@/components/tts/voice-preview";
 import { formatDate } from "@/lib/utils";
+
+/**
+ * "below": the paragraph view under this card owns the player.
+ * "legacy": the plan includes paragraph fixes but this audio predates them.
+ * "locked": the plan does not include paragraph fixes.
+ */
+export type ParagraphFixState = "below" | "legacy" | "locked" | "none";
 
 type ChapterTtsPanelProps = {
   chapter: ChapterDetail;
   /** True while a whole-book generation is queued or running for this project. */
   projectGenerating?: boolean;
   premiumAvailableSeconds: number;
+  paragraphFix?: ParagraphFixState;
 };
 
 export function ChapterTtsPanel({
   chapter,
   projectGenerating = false,
   premiumAvailableSeconds,
+  paragraphFix = "none",
 }: ChapterTtsPanelProps) {
   const router = useRouter();
   const voices = useVoiceOptions();
@@ -33,9 +44,8 @@ export function ChapterTtsPanel({
   const [jobProgress, setJobProgress] = useState<JobSummary["progress"]>(null);
   const [speed, setSpeed] = useState(chapter.selectedSpeed || DEFAULT_SPEECH_SPEED);
   const [error, setError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loadedAudio, setLoadedAudio] = useState<{ id: string; url: string } | null>(null);
-  const [pending, setPending] = useState<"preview" | "generate" | null>(null);
+  const [pending, setPending] = useState<"generate" | null>(null);
   const latestJob = chapter.latestTtsJob;
   const polling = latestJob?.status === "QUEUED" || latestJob?.status === "PROCESSING";
   const hasAudio = Boolean(chapter.currentAudio);
@@ -43,6 +53,7 @@ export function ChapterTtsPanel({
   const voiceId = voices.some((voice) => voice.id === chosenVoiceId)
     ? chosenVoiceId
     : (voices[0]?.id ?? "");
+  const preview = useVoicePreview(voiceId, speed);
   const selectedVoice = useMemo(
     () => voices.find((voice) => voice.id === voiceId) ?? null,
     [voiceId, voices],
@@ -58,7 +69,7 @@ export function ChapterTtsPanel({
 
   useEffect(() => {
     const audioId = chapter.currentAudio?.id;
-    if (!audioId) {
+    if (!audioId || paragraphFix === "below") {
       return;
     }
     let cancelled = false;
@@ -76,7 +87,7 @@ export function ChapterTtsPanel({
     return () => {
       cancelled = true;
     };
-  }, [chapter.currentAudio?.id, chapter.id]);
+  }, [chapter.currentAudio?.id, chapter.id, paragraphFix]);
 
   const playbackUrl =
     chapter.currentAudio && loadedAudio?.id === chapter.currentAudio.id
@@ -102,34 +113,6 @@ export function ChapterTtsPanel({
     }, 2000);
     return () => window.clearInterval(timer);
   }, [latestJob, polling, router]);
-
-  async function onPreview() {
-    if (!voiceId) {
-      return;
-    }
-    setPending("preview");
-    setError(null);
-    try {
-      const response = await fetch(`/api/voices/${voiceId}/preview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ speed }),
-      });
-      const payload = (await response.json()) as {
-        data?: { audioUrl?: string };
-        error?: { code?: string; message?: string };
-      };
-      if (!response.ok || !payload.data?.audioUrl) {
-        setError(userFacingTtsError(payload.error?.code, payload.error?.message));
-        return;
-      }
-      setPreviewUrl(payload.data.audioUrl);
-    } catch {
-      setError(userFacingTtsError());
-    } finally {
-      setPending(null);
-    }
-  }
 
   async function onGenerate() {
     if (!voiceId) {
@@ -184,9 +167,7 @@ export function ChapterTtsPanel({
         />
 
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={onPreview} disabled={!voiceId || busy}>
-            {pending === "preview" ? "Previewing..." : "Preview Voice"}
-          </Button>
+          <VoicePreviewButton preview={preview} disabled={!voiceId || busy} />
           <Button onClick={onGenerate} disabled={!voiceId || busy || premiumShort}>
             {pending === "generate"
               ? "Starting..."
@@ -204,11 +185,7 @@ export function ChapterTtsPanel({
           </p>
         ) : null}
 
-        {previewUrl ? (
-          <audio className="w-full" controls src={previewUrl} preload="metadata">
-            Your browser does not support audio playback.
-          </audio>
-        ) : null}
+        <VoicePreviewPlayer audioUrl={preview.audioUrl} />
 
         <div className="space-y-3 border-t border-border pt-6">
           <h3 className="font-medium">Audio</h3>
@@ -229,23 +206,40 @@ export function ChapterTtsPanel({
               The text changed after this audio was made. Regenerate to update it.
             </p>
           ) : null}
-          {chapter.currentAudio && playbackUrl ? (
+          {chapter.currentAudio && (playbackUrl || paragraphFix === "below") ? (
             <div className="space-y-3">
-              <audio className="w-full" controls src={playbackUrl} preload="metadata">
-                Your browser does not support audio playback.
-              </audio>
+              {playbackUrl ? (
+                <audio className="w-full" controls src={playbackUrl} preload="metadata">
+                  Your browser does not support audio playback.
+                </audio>
+              ) : null}
               <p className="text-sm text-muted-foreground">
                 Voice: {selectedVoice?.name ?? chapter.selectedVoiceId ?? "Selected voice"} ·{" "}
                 {formatAudioDuration(chapter.currentAudio.durationSeconds ?? 0)} · Generated{" "}
                 {formatDate(chapter.currentAudio.createdAt)}
+                {paragraphFix === "below" ? " · Listen and fix paragraphs below." : ""}
               </p>
             </div>
           ) : !polling ? (
             <p className="text-sm text-muted-foreground">No chapter audio yet.</p>
           ) : null}
+          {chapter.currentAudio && paragraphFix === "legacy" && !polling ? (
+            <p className="text-sm text-muted-foreground">
+              Regenerate this chapter once to fix single paragraphs without redoing the whole chapter.
+            </p>
+          ) : null}
+          {chapter.currentAudio && paragraphFix === "locked" ? (
+            <p className="text-sm text-muted-foreground">
+              Fix one misread paragraph without regenerating the chapter with the{" "}
+              <Link href="/pricing" className="underline">
+                Creator plan
+              </Link>
+              .
+            </p>
+          ) : null}
         </div>
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ?? preview.error ? <p className="text-sm text-destructive">{error ?? preview.error}</p> : null}
       </CardContent>
     </Card>
   );

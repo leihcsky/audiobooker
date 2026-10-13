@@ -227,6 +227,31 @@ describe("startChapterGeneration", () => {
     });
   });
 
+  it("reserves only the characters to synthesize and records retried paragraphs", async () => {
+    getChapterForActor.mockResolvedValue(chapterDetail());
+    getVoiceAccess.mockResolvedValue({ premium: true });
+    resolveVoice.mockReturnValue(resolved("premium", 0.1));
+    jobCreate.mockResolvedValue(queuedJob("job-4"));
+
+    await startChapterGeneration({
+      userId: ownerId,
+      chapterId,
+      voiceId: "replicate-wise-woman",
+      synthesisCharacters: 5,
+      retryParagraphs: [0],
+    });
+
+    expect(assertPremiumCostGuard).toHaveBeenCalledWith((5 / 1000) * 0.1);
+    expect(reserveCredits).toHaveBeenCalledWith(expect.anything(), {
+      userId: ownerId,
+      jobId: "job-4",
+      seconds: Math.ceil(5 / 12.5),
+    });
+    expect(jobCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ inputCharacters: text.length, retryParagraphs: [0] }),
+    });
+  });
+
   it("does not create a job when premium minutes are short", async () => {
     getChapterForActor.mockResolvedValue(chapterDetail());
     resolveVoice.mockReturnValue(resolved("premium", 0.1));

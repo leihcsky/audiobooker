@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildConcatList, buildFfmetadata, escapeFfmetadata } from "@/lib/export/ffmetadata";
+import { buildConcatList, buildFfmetadata, buildMetadataText, escapeFfmetadata } from "@/lib/export/ffmetadata";
 
 describe("ffmetadata", () => {
   it("escapes metadata control characters", () => {
@@ -16,6 +16,7 @@ describe("ffmetadata", () => {
         description: null,
         publisher: null,
         copyright: "2026",
+        aiDisclosure: "Narrated by a synthetic voice.",
       },
       chapters: [
         { title: "Intro", startMs: 0, endMs: 1000 },
@@ -23,6 +24,7 @@ describe("ffmetadata", () => {
       ],
     });
 
+    expect(text).toContain("comment=Narrated by a synthetic voice.");
     expect(text).toContain("title=My Book");
     expect(text).toContain("artist=Jane");
     expect(text).toContain("[CHAPTER]");
@@ -31,6 +33,24 @@ describe("ffmetadata", () => {
     expect(text).toContain("title=Intro");
     expect(text).toContain("START=1000");
     expect(text).toContain("END=2500");
+  });
+
+  it("appends the AI disclosure after the description", () => {
+    const metadata = {
+      title: "My Book",
+      author: null,
+      narrator: null,
+      language: "en",
+      description: "A story.",
+      publisher: null,
+      copyright: null,
+      aiDisclosure: "Narrated by a synthetic voice.",
+    };
+
+    expect(buildFfmetadata({ metadata, chapters: [] })).toContain(
+      "comment=A story.\\\n\\\nNarrated by a synthetic voice.",
+    );
+    expect(buildMetadataText(metadata)).toContain("AI narration disclosure: Narrated by a synthetic voice.");
   });
 
   it("quotes concat filenames without using a shell", () => {

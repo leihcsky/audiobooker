@@ -46,6 +46,7 @@ export function SourceIngestionPanel({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<"upload" | "parse" | null>(null);
   const [confirmReplace, setConfirmReplace] = useState(false);
+  const [replaceSourceId, setReplaceSourceId] = useState<string | null>(null);
   const latestSource = sourceFiles[0] ?? null;
   const polling = latestParseJob?.status === "QUEUED" || latestParseJob?.status === "PROCESSING";
 
@@ -122,12 +123,24 @@ export function SourceIngestionPanel({
           sizeBytes: file.size,
         }),
       });
-      if (!confirmResponse.ok) {
-        const payload = (await confirmResponse.json().catch(() => null)) as ApiError | null;
-        setError(userFacingError(payload?.error.code));
+      const confirmPayload = (await confirmResponse.json().catch(() => null)) as
+        | { success: true; data: { sourceFile: { id: string } } }
+        | ApiError
+        | null;
+      if (!confirmResponse.ok || !confirmPayload?.success) {
+        setError(userFacingError(confirmPayload && !confirmPayload.success ? confirmPayload.error.code : undefined));
         return;
       }
 
+      const sourceFileId = confirmPayload.data.sourceFile.id;
+      if (chapterCount === 0) {
+        await startParse(sourceFileId);
+        return;
+      }
+      if (!narrating) {
+        setReplaceSourceId(sourceFileId);
+        setConfirmReplace(true);
+      }
       router.refresh();
     } catch {
       setError("We couldn't upload this file.");
@@ -136,36 +149,45 @@ export function SourceIngestionPanel({
     }
   }
 
-  async function onParse() {
-    if (!latestSource) {
-      return;
-    }
-
+  async function startParse(sourceFileId: string) {
     setError(null);
     setConfirmReplace(false);
+    setReplaceSourceId(null);
     setPending("parse");
-    const response = await fetch(`/api/projects/${projectId}/parse`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sourceFileId: latestSource.id }),
-    });
-    setPending(null);
-
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as ApiError | null;
-      setError(userFacingError(payload?.error.code, payload?.error.message));
-      return;
+    try {
+      const response = await fetch(`/api/projects/${projectId}/parse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceFileId }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as ApiError | null;
+        setError(userFacingError(payload?.error.code, payload?.error.message));
+      }
+    } catch {
+      setError("We couldn't start reading this file. Try again.");
+    } finally {
+      setPending(null);
+      router.refresh();
     }
-
-    router.refresh();
   }
 
   function onParseClick() {
     if (chapterCount > 0) {
+      setReplaceSourceId(null);
       setConfirmReplace(true);
       return;
     }
-    void onParse();
+    if (latestSource) {
+      void startParse(latestSource.id);
+    }
+  }
+
+  function onConfirmReplace() {
+    const sourceFileId = replaceSourceId ?? latestSource?.id;
+    if (sourceFileId) {
+      void startParse(sourceFileId);
+    }
   }
 
   return (
@@ -177,7 +199,7 @@ export function SourceIngestionPanel({
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="inline-flex h-10 cursor-pointer items-center rounded-md border border-border px-4 text-sm font-medium hover:bg-muted">
-            {pending === "upload" ? "Uploading..." : "Choose File"}
+            {pending === "upload" ? "Uploading..." : pending === "parse" ? "Reading your book..." : "Choose File"}
             <input
               type="file"
               accept=".epub,.pdf,.txt,application/epub+zip,application/pdf,text/plain"
@@ -213,10 +235,14 @@ export function SourceIngestionPanel({
             </div>
           ) : null}
 
-          {latestSource && latestSource.status !== "PARSING" && latestParseJob?.status !== "FAILED" ? (
-            <Button onClick={onParseClick} disabled={pending !== null || polling || narrating}>
-              {pending === "parse" ? "Starting..." : chapterCount > 0 ? "Parse again" : "Parse Book"}
+          {latestSource && chapterCount > 0 && !polling && latestParseJob?.status !== "FAILED" ? (
+            <Button variant="outline" onClick={onParseClick} disabled={pending !== null || narrating}>
+              Parse again
             </Button>
+          ) : null}
+
+          {latestSource && chapterCount === 0 && latestSource.status === "UPLOADED" && !polling && pending === null && latestParseJob?.status !== "FAILED" ? (
+            <Button onClick={onParseClick}>Read chapters</Button>
           ) : null}
 
           {narrating && chapterCount > 0 ? (
@@ -229,14 +255,21 @@ export function SourceIngestionPanel({
             <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
               <p className="font-medium">Replace all {chapterCount} chapters?</p>
               <p className="mt-1 text-muted-foreground">
-                Parsing again rebuilds the chapter list from this file. Text edits, chapter order, and
-                generated audio for the current chapters will be removed.
+                {replaceSourceId ? "The new file rebuilds the chapter list." : "Parsing again rebuilds the chapter list from this file."}{" "}
+                Text edits, chapter order, and generated audio for the current chapters will be removed.
               </p>
               <div className="mt-3 flex gap-2">
-                <Button variant="destructive" size="sm" onClick={() => void onParse()} disabled={pending !== null}>
+                <Button variant="destructive" size="sm" onClick={onConfirmReplace} disabled={pending !== null}>
                   Replace chapters
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setConfirmReplace(false)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setConfirmReplace(false);
+                    setReplaceSourceId(null);
+                  }}
+                >
                   Cancel
                 </Button>
               </div>

@@ -1,4 +1,4 @@
-import type { Project, ProjectStatus } from "@/generated/prisma";
+import type { Prisma, Project, ProjectStatus } from "@/generated/prisma";
 import type { ProjectStore } from "@/lib/projects/project.service";
 
 export function makeProject(overrides: Partial<Project> = {}): Project {
@@ -8,6 +8,7 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     id: "11111111-1111-4111-8111-111111111111",
     userId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     title: "My Audiobook",
+    titleSetByUser: true,
     author: "Jane Doe",
     description: "Optional description",
     language: "en",
@@ -18,6 +19,10 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     expiresAt: null,
     status: "DRAFT",
     coverObjectKey: null,
+    coverWidth: null,
+    coverHeight: null,
+    aiDisclosure: null,
+    deletedAt: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -26,8 +31,23 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
 
 export function createMemoryProjectStore(initial: Project[] = []): ProjectStore & {
   records: Project[];
+  cancelledJobs: Prisma.GenerationJobWhereInput[];
 } {
   const records = [...initial];
+  const cancelledJobs: Prisma.GenerationJobWhereInput[] = [];
+
+  function matches(project: Project, where?: Prisma.ProjectWhereInput): boolean {
+    if (where?.userId && project.userId !== where.userId) {
+      return false;
+    }
+    if (where?.status && project.status !== where.status) {
+      return false;
+    }
+    if (where?.deletedAt === null && project.deletedAt !== null) {
+      return false;
+    }
+    return true;
+  }
 
   const store: ProjectStore = {
     project: {
@@ -44,6 +64,7 @@ export function createMemoryProjectStore(initial: Project[] = []): ProjectStore 
                 ? new Date(data.expiresAt)
                 : null,
           title: data.title,
+          titleSetByUser: data.titleSetByUser ?? false,
           author: data.author ?? null,
           description: data.description ?? null,
           language: data.language ?? "en",
@@ -59,15 +80,7 @@ export function createMemoryProjectStore(initial: Project[] = []): ProjectStore 
         return project;
       },
       async findMany({ where, skip = 0, take }) {
-        let items = records.filter((project) => {
-          if (where?.userId && project.userId !== where.userId) {
-            return false;
-          }
-          if (where?.status && project.status !== where.status) {
-            return false;
-          }
-          return true;
-        });
+        let items = records.filter((project) => matches(project, where));
         items = items.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
         return items.slice(skip, take == null ? undefined : skip + take);
       },
@@ -83,6 +96,8 @@ export function createMemoryProjectStore(initial: Project[] = []): ProjectStore 
         const updated: Project = {
           ...current,
           title: typeof data.title === "string" ? data.title : current.title,
+          titleSetByUser:
+            typeof data.titleSetByUser === "boolean" ? data.titleSetByUser : current.titleSetByUser,
           author:
             data.author === undefined
               ? current.author
@@ -102,32 +117,23 @@ export function createMemoryProjectStore(initial: Project[] = []): ProjectStore 
             data.copyright === undefined
               ? current.copyright
               : (data.copyright as string | null),
+          deletedAt: data.deletedAt instanceof Date ? data.deletedAt : current.deletedAt,
           updatedAt: new Date("2026-01-16T12:00:00.000Z"),
         };
         records[index] = updated;
         return updated;
       },
-      async delete({ where }) {
-        const index = records.findIndex((project) => project.id === where.id);
-        if (index === -1) {
-          throw new Error("Project missing");
-        }
-        const [removed] = records.splice(index, 1);
-        return removed;
-      },
       async count({ where }) {
-        return records.filter((project) => {
-          if (where?.userId && project.userId !== where.userId) {
-            return false;
-          }
-          if (where?.status && project.status !== where.status) {
-            return false;
-          }
-          return true;
-        }).length;
+        return records.filter((project) => matches(project, where)).length;
+      },
+    },
+    generationJob: {
+      async updateMany({ where }) {
+        cancelledJobs.push(where);
+        return { count: 0 };
       },
     },
   };
 
-  return { ...store, records };
+  return { ...store, records, cancelledJobs };
 }

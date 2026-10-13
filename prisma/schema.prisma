@@ -103,6 +103,7 @@ enum CreditEntryType {
   PURCHASE
   GENERATION_RESERVE
   GENERATION_REFUND
+  PURCHASE_REVERSAL
   PROMOTION
   ADMIN_ADJUSTMENT
 }
@@ -111,6 +112,22 @@ enum CreditReservationStatus {
   RESERVED
   CAPTURED
   RELEASED
+}
+
+enum BillingOrderKind {
+  SUBSCRIPTION
+  MINUTE_PACK
+}
+
+enum BillingOrderStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+enum BillingEventOutcome {
+  PROCESSED
+  IGNORED
 }
 
 enum ExportType {
@@ -145,6 +162,7 @@ model User {
   subscriptions      Subscription[]
   creditEntries      CreditLedger[]
   creditReservations CreditReservation[]
+  billingOrders      BillingOrder[]
 
   @@index([createdAt])
 }
@@ -208,6 +226,7 @@ model Project {
   anonymousSessionId  String?       @db.Char(36)
   expiresAt           DateTime?
   title               String        @db.VarChar(255)
+  titleSetByUser      Boolean       @default(false)
   author              String?       @db.VarChar(255)
   description         String?       @db.Text
   language            String        @default("en") @db.VarChar(20)
@@ -216,6 +235,10 @@ model Project {
   copyright           String?       @db.VarChar(255)
   status              ProjectStatus @default(DRAFT)
   coverObjectKey      String?       @db.VarChar(1024)
+  coverWidth          Int?
+  coverHeight         Int?
+  aiDisclosure        String?       @db.Text
+  deletedAt           DateTime?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
@@ -223,6 +246,7 @@ model Project {
   anonymousSession  AnonymousSession?  @relation(fields: [anonymousSessionId], references: [id], onDelete: Cascade)
   sourceFiles       SourceFile[]
   chapters          Chapter[]
+  pronunciations    PronunciationEntry[]
   generationJobs    GenerationJob[]
   audioFiles        AudioFile[]
   usageRecords      UsageRecord[]
@@ -280,6 +304,21 @@ model Chapter {
   @@index([projectId, status])
 }
 
+model PronunciationEntry {
+  id            String   @id @default(uuid()) @db.Char(36)
+  projectId     String   @db.Char(36)
+  term          String   @db.VarChar(100)
+  replacement   String   @db.VarChar(200)
+  caseSensitive Boolean  @default(false)
+  wholeWord     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, term])
+}
+
 model GenerationJob {
   id              String    @id @default(uuid()) @db.Char(36)
   projectId       String    @db.Char(36)
@@ -295,6 +334,7 @@ model GenerationJob {
   totalChunks     Int?
   completedChunks Int       @default(0)
   cachedChunks    Int       @default(0)
+  retryParagraphs Json?
   estimatedCost   Decimal?  @db.Decimal(12, 4)
   actualCost      Decimal?  @db.Decimal(12, 4)
   currency        String?   @db.VarChar(3)
@@ -336,6 +376,7 @@ model AudioFile {
   providerVoiceId String?     @db.VarChar(255)
   generationJobId String?     @db.Char(36)
   version         Int         @default(1)
+  segmentManifest Json?
   createdAt       DateTime    @default(now())
 
   project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -420,6 +461,8 @@ model Export {
   createdAt       DateTime     @default(now())
   completedAt     DateTime?
   generationJobId String?      @db.Char(36)
+  masteringPreset String?      @db.VarChar(50)
+  qcReport        Json?
 
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   generationJob GenerationJob? @relation(fields: [generationJobId], references: [id], onDelete: SetNull)
@@ -485,4 +528,43 @@ model CreditReservation {
   job  GenerationJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
 
   @@index([userId, status])
+}
+
+model BillingOrder {
+  id                String             @id @default(uuid()) @db.Char(36)
+  userId            String             @db.Char(36)
+  provider          String             @db.VarChar(50)
+  kind              BillingOrderKind
+  itemId            String             @db.VarChar(50)
+  creatorPrice      Boolean            @default(false)
+  productId         String             @db.VarChar(255)
+  amountUsd         Decimal            @db.Decimal(10, 2)
+  premiumSeconds    Int                @default(0)
+  checkoutSessionId String?            @db.VarChar(255)
+  providerOrderId   String?            @db.VarChar(255)
+  status            BillingOrderStatus @default(PENDING)
+  paidAt            DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerOrderId])
+  @@index([userId, createdAt])
+}
+
+model BillingEvent {
+  id              String              @id @default(uuid()) @db.Char(36)
+  provider        String              @db.VarChar(50)
+  providerEventId String              @db.VarChar(191)
+  eventType       String              @db.VarChar(100)
+  businessEventId String?             @db.VarChar(255)
+  providerOrderId String?             @db.VarChar(255)
+  outcome         BillingEventOutcome
+  note            String?             @db.VarChar(255)
+  payloadHash     String              @db.Char(64)
+  createdAt       DateTime            @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([providerOrderId])
 }

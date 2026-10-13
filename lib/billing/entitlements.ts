@@ -45,8 +45,47 @@ export async function getVoiceAccess(actor: Actor): Promise<VoiceAccess> {
   return { premium: actor.type === "user" };
 }
 
+export async function canUsePublishMastering(actor: Actor): Promise<boolean> {
+  if (actor.type !== "user") {
+    return false;
+  }
+  return (await getUserPlan(actor.userId)).publishMastering;
+}
+
+export async function assertCanUsePublishMastering(actor: Actor): Promise<void> {
+  if (!(await canUsePublishMastering(actor))) {
+    throw planRequired("Publish-ready exports are part of the Creator plan.");
+  }
+}
+
+export async function canUsePronunciationDictionary(actor: Actor): Promise<boolean> {
+  if (actor.type !== "user") {
+    return false;
+  }
+  return (await getUserPlan(actor.userId)).pronunciationDictionary;
+}
+
+export async function assertCanUsePronunciationDictionary(actor: Actor): Promise<void> {
+  if (!(await canUsePronunciationDictionary(actor))) {
+    throw planRequired("The pronunciation dictionary is part of the Creator plan.");
+  }
+}
+
+export async function canUseParagraphFix(actor: Actor): Promise<boolean> {
+  if (actor.type !== "user") {
+    return false;
+  }
+  return (await getUserPlan(actor.userId)).paragraphFix;
+}
+
+export async function assertCanUseParagraphFix(actor: Actor): Promise<void> {
+  if (!(await canUseParagraphFix(actor))) {
+    throw planRequired("Fixing a single paragraph is part of the Creator plan.");
+  }
+}
+
 export async function countUserProjects(userId: string): Promise<number> {
-  return prisma.project.count({ where: { userId } });
+  return prisma.project.count({ where: { userId, deletedAt: null } });
 }
 
 export async function assertCanCreateProject(userId: string): Promise<void> {
@@ -74,7 +113,7 @@ export async function assertProjectWithinPlan(actor: Actor, projectId: string): 
     return;
   }
   const usable = await prisma.project.findMany({
-    where: { userId: actor.userId },
+    where: { userId: actor.userId, deletedAt: null },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: plan.maxProjects,
     select: { id: true },

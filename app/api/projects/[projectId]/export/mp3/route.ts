@@ -18,10 +18,11 @@ export async function POST(request: Request, context: RouteContext) {
     const { projectId } = await context.params;
     const parsedId = projectIdSchema.parse(projectId);
     const body: unknown = await request.json().catch(() => undefined);
-    exportMp3Schema.parse(body);
+    const input = exportMp3Schema.parse(body);
     const started = await startMp3Export({
       projectId: parsedId,
       actor,
+      mastering: input.mastering,
     });
     await recordToolEvent({ actor, projectId: parsedId, name: "tool_export_started" });
     if (started.job.status === "QUEUED") {

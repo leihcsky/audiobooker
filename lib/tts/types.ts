@@ -71,6 +71,8 @@ export interface TTSProvider {
 
 export type TextChunk = {
   index: number;
+  /** Index among the text's non-empty paragraphs; a chunk never spans paragraphs. */
+  paragraph: number;
   text: string;
   characterCount: number;
 };

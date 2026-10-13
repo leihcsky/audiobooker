@@ -10,10 +10,12 @@ import { Label } from "@/components/ui/label";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
 import { PremiumEstimate } from "@/components/billing/premium-estimate";
 import { useVoiceOptions, VoiceSelect } from "@/components/tts/voice-select";
+import { useVoicePreview, VoicePreviewButton, VoicePreviewPlayer } from "@/components/tts/voice-preview";
 import { formatAudioDuration } from "@/lib/audio/format-duration";
 import { estimatePremiumSeconds } from "@/lib/billing/premium-usage";
 import type { ChapterSummary, ProjectGenerationSummary } from "@/lib/projects/project.detail";
 import type { ProjectProgress } from "@/lib/projects/project.progress";
+import { formatSpokenLength } from "@/lib/tts/narration-length";
 import { userFacingTtsError } from "@/lib/tts/tts-error-copy";
 import { cn } from "@/lib/utils";
 
@@ -108,11 +110,15 @@ export function ProjectWorkspace({
   const chapterGenerating = chapters.some((chapter) => chapter.status === "GENERATING");
   const narrating = generationActive || chapterGenerating;
   const busy = pending !== null || narrating;
+  const preview = useVoicePreview(voiceId, speed);
   const toNarrate = displayChapters.filter(needsNarration);
   const currentChapter = generation?.currentChapterId
     ? chapters.find((chapter) => chapter.id === generation.currentChapterId) ?? null
     : null;
   const selectedCount = includedIds.size;
+  const selectedSeconds = displayChapters
+    .filter((chapter) => chapter.included)
+    .reduce((sum, chapter) => sum + (chapter.audioDurationSeconds ?? chapter.estimatedSeconds), 0);
   const selectedVoice = voices.find((voice) => voice.id === voiceId);
   const premiumSelected = selectedVoice?.tier === "PREMIUM";
   const premiumNeeded = premiumSelected
@@ -296,6 +302,7 @@ export function ProjectWorkspace({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <VoicePreviewButton preview={preview} disabled={!voiceId || pending !== null} />
             <Button
               onClick={onGenerate}
               disabled={!voiceId || busy || savingSelection || premiumShort || toNarrate.length === 0}
@@ -319,7 +326,17 @@ export function ProjectWorkspace({
             ) : null}
           </div>
 
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <VoicePreviewPlayer audioUrl={preview.audioUrl} />
+
+          {error ?? preview.error ? <p className="text-sm text-destructive">{error ?? preview.error}</p> : null}
+
+          <p className="text-sm text-muted-foreground">
+            A name or word read wrong?{" "}
+            <Link href={`/studio/projects/${projectId}/pronunciation`} className="underline">
+              Fix it in the pronunciation dictionary
+            </Link>
+            .
+          </p>
         </CardContent>
       </Card>
 
@@ -328,7 +345,8 @@ export function ProjectWorkspace({
           <CardTitle>Chapters</CardTitle>
           <CardDescription>
             Open a chapter to edit its text, listen to it, or regenerate it. Checked chapters go into the audiobook
-            ({selectedCount} of {chapters.length}).
+            ({selectedCount} of {chapters.length}
+            {selectedSeconds > 0 ? ` · about ${formatSpokenLength(selectedSeconds)}` : ""}).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -385,9 +403,10 @@ export function ProjectWorkspace({
                         </span>
                         {" · "}
                         {chapter.wordCount.toLocaleString()} words
+                        {" · "}
                         {chapter.audioDurationSeconds != null
-                          ? ` · ${formatAudioDuration(chapter.audioDurationSeconds)}`
-                          : ""}
+                          ? formatAudioDuration(chapter.audioDurationSeconds)
+                          : `about ${formatSpokenLength(chapter.estimatedSeconds)}`}
                       </span>
                     </span>
                   </Link>

@@ -1,3 +1,5 @@
+import { describeWithDisclosure } from "@/lib/publish/disclosure";
+
 export type AudiobookMetadata = {
   title: string;
   author: string | null;
@@ -6,6 +8,7 @@ export type AudiobookMetadata = {
   description: string | null;
   publisher: string | null;
   copyright: string | null;
+  aiDisclosure: string;
 };
 
 export type ChapterMarker = {
@@ -36,9 +39,9 @@ export function buildFfmetadata(input: {
   if (input.metadata.narrator) {
     lines.push(`composer=${escapeFfmetadata(input.metadata.narrator)}`);
   }
-  if (input.metadata.description) {
-    lines.push(`comment=${escapeFfmetadata(input.metadata.description)}`);
-  }
+  lines.push(
+    `comment=${escapeFfmetadata(describeWithDisclosure(input.metadata.description, input.metadata.aiDisclosure))}`,
+  );
   if (input.metadata.publisher) {
     lines.push(`publisher=${escapeFfmetadata(input.metadata.publisher)}`);
   }
@@ -69,6 +72,7 @@ export function buildMetadataText(metadata: AudiobookMetadata): string {
     `Publisher: ${metadata.publisher ?? ""}`,
     `Copyright: ${metadata.copyright ?? ""}`,
     `Description: ${metadata.description ?? ""}`,
+    `AI narration disclosure: ${metadata.aiDisclosure}`,
   ].join("\n");
 }
 

@@ -5,6 +5,8 @@ const MESSAGE_FROM_API = new Set([
   "TTS_CAPACITY_REACHED",
   "CONFLICT",
   "VALIDATION_ERROR",
+  "PLAN_REQUIRED",
+  "PARAGRAPH_NOT_FOUND",
 ]);
 
 export function userFacingTtsError(code?: string, message?: string): string {

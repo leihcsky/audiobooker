@@ -29,6 +29,9 @@ export async function assertProjectAccess(actor: Actor, projectId: string): Prom
   ) {
     throw sessionExpired();
   }
+  if (project.deletedAt) {
+    throw projectNotFound();
+  }
   if (!actorOwnsProject(project, actor)) {
     throw forbidden("You do not have access to this project.");
   }

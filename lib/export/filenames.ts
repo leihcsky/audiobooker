@@ -18,8 +18,9 @@ export function chapterZipEntryName(orderIndex: number, title: string): string {
   return `${prefix} - ${sanitizeFilename(title, "Chapter")}.mp3`;
 }
 
-export function exportZipFilename(title: string): string {
-  return `${sanitizeFilename(title, "audiobook")}.zip`;
+export function exportZipFilename(title: string, options: { publishReady?: boolean } = {}): string {
+  const base = sanitizeFilename(title, "audiobook");
+  return options.publishReady ? `${base} - publish-ready.zip` : `${base}.zip`;
 }
 
 export function exportM4bFilename(title: string): string {

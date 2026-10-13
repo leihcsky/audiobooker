@@ -2,12 +2,23 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createEdgeProvider,
   EDGE_HARD_LIMIT_CHARACTERS,
+  EDGE_SYNTH_ENDPOINT,
+  edgeSynthUrl,
   escapeXml,
   mapEdgeError,
   speedToEdgeRate,
 } from "@/lib/tts/providers/edge";
 
 describe("Edge TTS adapter", () => {
+  it("connects msedge-tts to the current synthesis endpoint", async () => {
+    const url = new URL(await edgeSynthUrl());
+    expect(`${url.protocol}//${url.host}${url.pathname}`).toBe(EDGE_SYNTH_ENDPOINT);
+    expect(url.searchParams.get("Ocp-Apim-Subscription-Key")).toMatch(/^[0-9A-F]{32}$/);
+    expect(url.searchParams.get("Sec-MS-GEC")).toMatch(/^[0-9A-F]{64}$/);
+    expect(url.searchParams.get("Sec-MS-GEC-Version")).toMatch(/^1-/);
+    expect(url.searchParams.get("ConnectionId")).toBeTruthy();
+  });
+
   it("sends escaped text, the Edge voice name, and the speaking rate", async () => {
     const synthesizeRaw = vi.fn().mockResolvedValue(Buffer.from("mp3"));
     const provider = createEdgeProvider({ synthesizeRaw });

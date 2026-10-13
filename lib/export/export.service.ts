@@ -9,6 +9,8 @@ import {
   exportNotReady,
   forbidden,
 } from "@/lib/api/errors";
+import { PUBLISH_MASTERING_PRESET } from "@/lib/audio/mastering-preset";
+import { assertCanUsePublishMastering } from "@/lib/billing/entitlements";
 import { FILE_LIMITS } from "@/lib/config/limits";
 import { prisma } from "@/lib/db/prisma";
 import { evaluateExportReadiness, type ExportReadinessResult } from "@/lib/export/eligibility";
@@ -91,11 +93,13 @@ async function findActiveExport(input: {
   projectId: string;
   type: ExportType;
   jobType: JobType;
+  masteringPreset?: string | null;
 }): Promise<StartedExport | null> {
   const active = await prisma.export.findFirst({
     where: {
       projectId: input.projectId,
       type: input.type,
+      masteringPreset: input.masteringPreset ?? null,
       status: { in: ["QUEUED", "PROCESSING"] },
     },
     orderBy: { createdAt: "desc" },
@@ -166,6 +170,7 @@ async function createExportJob(input: {
   type: ExportType;
   jobType: JobType;
   format: string;
+  masteringPreset?: string | null;
 }): Promise<StartedExport> {
   const [job, record] = await prisma.$transaction(async (tx) => {
     const createdJob = await tx.generationJob.create({
@@ -182,6 +187,7 @@ async function createExportJob(input: {
         format: input.format,
         status: "QUEUED",
         generationJobId: createdJob.id,
+        masteringPreset: input.masteringPreset ?? null,
       },
     });
     return [createdJob, createdExport] as const;
@@ -207,13 +213,19 @@ export async function startMp3Export(input: {
   projectId: string;
   userId?: string;
   actor?: Actor;
+  mastering?: "publish" | null;
 }): Promise<StartedExport> {
   const actor = resolveActor(input);
+  const masteringPreset = input.mastering === "publish" ? PUBLISH_MASTERING_PRESET.id : null;
+  if (masteringPreset) {
+    await assertCanUsePublishMastering(actor);
+  }
   await assertExportableProject(input.projectId, actor);
   const existing = await findActiveExport({
     projectId: input.projectId,
     type: "ZIP",
     jobType: "EXPORT_MP3",
+    masteringPreset,
   });
   if (existing) {
     return existing;
@@ -228,6 +240,7 @@ export async function startMp3Export(input: {
     type: "ZIP",
     jobType: "EXPORT_MP3",
     format: "zip",
+    masteringPreset,
   });
 }
 
@@ -306,7 +319,10 @@ export async function createExportDownload(input: {
     select: { title: true },
   });
   const title = project?.title ?? "audiobook";
-  const filename = record.type === "M4B" ? exportM4bFilename(title) : exportZipFilename(title);
+  const filename =
+    record.type === "M4B"
+      ? exportM4bFilename(title)
+      : exportZipFilename(title, { publishReady: record.masteringPreset !== null });
   const signed = await getStorage().createDownloadUrl({
     objectKey: record.objectKey,
     expiresInSeconds: FILE_LIMITS.EXPORT_SIGNED_URL_SECONDS,
@@ -326,6 +342,8 @@ export type ExportableChapter = {
   orderIndex: number;
   objectKey: string;
   durationSeconds: number | null;
+  voiceId: string | null;
+  speed: number;
 };
 
 export async function loadExportableChapters(projectId: string): Promise<ExportableChapter[]> {
@@ -349,6 +367,8 @@ export async function loadExportableChapters(projectId: string): Promise<Exporta
           chapter.currentAudioFile.durationSeconds == null
             ? null
             : Number(chapter.currentAudioFile.durationSeconds.toString()),
+        voiceId: chapter.selectedVoiceId,
+        speed: Number(chapter.selectedSpeed.toString()),
       },
     ];
   });

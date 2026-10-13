@@ -1,27 +1,23 @@
 import { prisma } from "@/lib/db/prisma";
-import { deleteProjectWithStoredObjects } from "@/lib/tools/project-assets";
+import { softDeleteProjects } from "@/lib/projects/project-deletion";
 
+/**
+ * Soft-deletes expired anonymous projects. Their records, stored files and
+ * anonymous sessions are kept: deleting a session would cascade to its
+ * projects.
+ */
 export async function cleanupExpiredAnonymousProjects(now = new Date()): Promise<number> {
   const expired = await prisma.project.findMany({
     where: {
       userId: null,
       anonymousSessionId: { not: null },
       expiresAt: { lte: now },
+      deletedAt: null,
     },
-    include: {
-      sourceFiles: { select: { objectKey: true } },
-      audioFiles: { select: { objectKey: true } },
-      exports: { select: { objectKey: true } },
-    },
+    select: { id: true },
   });
-
-  for (const project of expired) {
-    await deleteProjectWithStoredObjects(project);
-  }
-
-  await prisma.anonymousSession.deleteMany({
-    where: { expiresAt: { lte: now } },
-  });
-
-  return expired.length;
+  return softDeleteProjects(
+    expired.map((project) => project.id),
+    now,
+  );
 }

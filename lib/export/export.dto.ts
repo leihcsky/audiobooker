@@ -1,4 +1,5 @@
 import type { Export, ExportStatus, ExportType } from "@/generated/prisma";
+import { parseQcReport, type QcReport } from "@/lib/export/qc-report";
 
 export type ExportDto = {
   id: string;
@@ -12,6 +13,8 @@ export type ExportDto = {
   createdAt: string;
   completedAt: string | null;
   jobId: string | null;
+  masteringPreset: string | null;
+  qcReport: QcReport | null;
 };
 
 export function toExportDto(record: Export): ExportDto {
@@ -28,5 +31,7 @@ export function toExportDto(record: Export): ExportDto {
     createdAt: record.createdAt.toISOString(),
     completedAt: record.completedAt?.toISOString() ?? null,
     jobId: record.generationJobId,
+    masteringPreset: record.masteringPreset,
+    qcReport: parseQcReport(record.qcReport),
   };
 }

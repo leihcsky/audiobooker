@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const LINKS = [
   { href: "/studio", label: "Dashboard", match: (path: string) => path === "/studio" },
   { href: "/studio/projects", label: "Projects", match: (path: string) => path.startsWith("/studio/projects") },
+  { href: "/studio/billing", label: "Billing", match: (path: string) => path.startsWith("/studio/billing") },
 ];
 
 export function StudioNav() {

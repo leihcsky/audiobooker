@@ -18,6 +18,38 @@ export const EDGE_PROVIDER_ID = "edge";
 export const EDGE_MODEL = "edge-neural";
 export const EDGE_HARD_LIMIT_CHARACTERS = 5_000;
 export const EDGE_MAX_BYTES = 9_000;
+export const EDGE_SYNTH_ENDPOINT = "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1";
+const EDGE_SEC_MS_GEC_VERSION = "1-143.0.3650.75";
+
+type MsEdgeTTSInternals = {
+  TRUSTED_CLIENT_TOKEN: string;
+  generateSecMsGec: (token: string) => Promise<string>;
+  generateUUID: () => string;
+  getSynthUrl: () => Promise<string>;
+};
+
+/**
+ * Microsoft retired synthesis on speech.platform.bing.com (403 since 2026-10-12); the
+ * api.msedgeservices.com host accepts the same token under a different query parameter.
+ * msedge-tts hardcodes the old host, so its private URL builder is replaced here.
+ */
+function overrideEdgeEndpoint(): void {
+  const internals = MsEdgeTTS as unknown as MsEdgeTTSInternals;
+  if (typeof internals.generateSecMsGec !== "function" || typeof internals.generateUUID !== "function") {
+    throw new Error("msedge-tts internals changed; update the Edge synthesis endpoint override.");
+  }
+  internals.getSynthUrl = async () => {
+    const token = internals.TRUSTED_CLIENT_TOKEN;
+    const secMsGec = await internals.generateSecMsGec(token);
+    return `${EDGE_SYNTH_ENDPOINT}?Ocp-Apim-Subscription-Key=${token}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${EDGE_SEC_MS_GEC_VERSION}&ConnectionId=${internals.generateUUID()}`;
+  };
+}
+
+overrideEdgeEndpoint();
+
+export function edgeSynthUrl(): Promise<string> {
+  return (MsEdgeTTS as unknown as MsEdgeTTSInternals).getSynthUrl();
+}
 
 export type EdgeSynthesisRequest = {
   voice: string;

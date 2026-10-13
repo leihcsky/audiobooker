@@ -16,8 +16,9 @@ import {
 } from "@/lib/tools/tool-workspace";
 import type { ChapterSummary, JobSummary, ProjectDetailDto } from "@/lib/projects/project.detail";
 import type { ExportDto } from "@/lib/export/export.dto";
-import { formatSpokenMinutes } from "@/lib/tts/narration-length";
-import { voiceLabel } from "@/lib/voices/voice-label";
+import { titleFromFilename } from "@/lib/projects/project-title";
+import { formatSpokenLength } from "@/lib/tts/narration-length";
+import { groupVoices, voiceLabel } from "@/lib/voices/voice-label";
 import { narrationFailureCopy } from "@/lib/tts/narration-failure";
 
 type ApiError = {
@@ -108,6 +109,10 @@ function apiErrorCopy(payload: unknown, fallback?: string): string {
   return userFacingError(code, code === "GENERATION_LIMIT_REACHED" && message ? message : fallback);
 }
 
+function chapterCountLabel(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
 function triggerDownload(url: string) {
   const link = document.createElement("a");
   link.href = url;
@@ -137,10 +142,6 @@ function preferredVoiceId(voices: VoiceOption[], language?: string | null): stri
     ? voices.find((voice) => voice.language.toLowerCase().split("-")[0] === primary)
     : undefined;
   return (match ?? voices[0])?.id ?? "";
-}
-
-function titleFromFilename(filename: string): string {
-  return filename.replace(/\.[^.]+$/, "").trim() || "Untitled audiobook";
 }
 
 async function readJson<T>(response: Response): Promise<T | ApiError> {
@@ -189,8 +190,6 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
   const voiceId = voices.some((voice) => voice.id === chosenVoiceId)
     ? chosenVoiceId
     : preferredVoiceId(voices, detail?.project.language);
-  const standardVoices = voices.filter((voice) => voice.tier === "STANDARD");
-  const premiumVoices = voices.filter((voice) => voice.tier === "PREMIUM");
   const latestSource = detail?.sourceFiles[0] ?? null;
   const parseJob = detail?.latestParseJob ?? null;
   const parsing = parseJob?.status === "QUEUED" || parseJob?.status === "PROCESSING";
@@ -216,11 +215,10 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
     () => chapters.reduce((sum, chapter) => sum + chapter.wordCount, 0),
     [chapters],
   );
-  const totalCharacters = useMemo(
-    () => chapters.reduce((sum, chapter) => sum + chapter.characterCount, 0),
+  const totalSeconds = useMemo(
+    () => chapters.reduce((sum, chapter) => sum + chapter.estimatedSeconds, 0),
     [chapters],
   );
-
   const narrationPlan = useMemo(
     () => planNarrationWithinBudget(chapters, remaining),
     [chapters, remaining],
@@ -230,10 +228,10 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
     ? chapters.find((chapter) => chapter.id === generation.currentChapterId) ?? null
     : null;
   const progressChapter = batchChapter ?? generatingChapter;
-  const remainingBatchWords = batchRunning
+  const remainingBatchSeconds = batchRunning
     ? chapters
         .filter((chapter) => isChapterInFlight(chapter))
-        .reduce((sum, chapter) => sum + chapter.wordCount, 0)
+        .reduce((sum, chapter) => sum + chapter.estimatedSeconds, 0)
     : 0;
 
   const recordEvent = useCallback(async (name: string, extra?: Record<string, string>) => {
@@ -829,7 +827,9 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
         setError("Select at least one chapter that still needs audio.");
       } else {
         setError(
-          `“${leftoverChapters[0].title}” is larger than your remaining narration allowance. Unselect later chapters, or save the project to continue in Studio.`,
+          signedIn
+            ? `“${leftoverChapters[0].title}” is larger than your remaining narration allowance. Unselect later chapters, or save the project to continue in Studio.`
+            : "You've reached the end of the free preview. Create a free account below to narrate the rest of the book.",
         );
       }
       return;
@@ -900,9 +900,11 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
         <CardHeader>
           <CardTitle>Upload {config.supportedFormats.join(", ")}</CardTitle>
           <CardDescription>
-            {limits
-              ? `Free session limit: ${formatMegabytes(limits.maxFileBytes)} · ${limits.remainingCharacters.toLocaleString()} characters remaining`
-              : "Starting a free session..."}
+            {!limits
+              ? "Starting a free session..."
+              : signedIn
+                ? `Files up to ${formatMegabytes(limits.maxFileBytes)} · Standard voices are free`
+                : `Files up to ${formatMegabytes(limits.maxFileBytes)} · Try the first chapters free, finish the book with a free account`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -979,7 +981,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
                 ) : null}
                 <p className="text-sm text-muted-foreground">
                   {chapters.length} chapters · {totalWords.toLocaleString()} words ·{" "}
-                  {totalCharacters.toLocaleString()} characters · {formatSpokenMinutes(totalWords)}
+                  {formatSpokenLength(totalSeconds)}
                 </p>
               </div>
             </div>
@@ -1019,7 +1021,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
                       : queued
                         ? "Queued"
                         : beyondBudget
-                          ? "Beyond this session"
+                          ? signedIn ? "Beyond this month's allowance" : "Free account"
                           : "";
                 return (
                   <li key={chapter.id} className="space-y-2 py-2">
@@ -1040,7 +1042,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
                         </span>
                       </label>
                       <span className="shrink-0 text-muted-foreground">
-                        {`${chapter.wordCount.toLocaleString()} words · ${formatSpokenMinutes(chapter.wordCount)}`}
+                        {`${chapter.wordCount.toLocaleString()} words · ${formatSpokenLength(chapter.estimatedSeconds)}`}
                         {statusLabel ? ` · ${statusLabel}` : ""}
                       </span>
                     </div>
@@ -1076,24 +1078,15 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
                 onChange={(event) => setVoiceId(event.target.value)}
                 disabled={pending !== null || parsing || busyGenerating}
               >
-                {standardVoices.length > 0 ? (
-                  <optgroup label="Standard voices">
-                    {standardVoices.map((voice) => (
+                {groupVoices(voices).map((group) => (
+                  <optgroup key={group.key} label={group.label}>
+                    {group.voices.map((voice) => (
                       <option key={voice.id} value={voice.id}>
                         {voiceLabel(voice)}
                       </option>
                     ))}
                   </optgroup>
-                ) : null}
-                {premiumVoices.length > 0 ? (
-                  <optgroup label="Premium voices (uses premium credits)">
-                    {premiumVoices.map((voice) => (
-                      <option key={voice.id} value={voice.id}>
-                        {voiceLabel(voice)}
-                      </option>
-                    ))}
-                  </optgroup>
-                ) : null}
+                ))}
               </select>
             </div>
             <SpeechSpeedControl
@@ -1107,20 +1100,20 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
                 <p>
                   This click will generate {narrationPlan.toGenerate.length} chapter{narrationPlan.toGenerate.length === 1 ? "" : "s"}
                   {" · "}
-                  {formatSpokenMinutes(narrationPlan.words)}
-                  {" · "}
-                  {narrationPlan.characters.toLocaleString()} characters.
+                  {formatSpokenLength(narrationPlan.estimatedSeconds)}.
                 </p>
               ) : leftoverChapters.length === 0 ? (
                 <p>Every selected chapter already has audio.</p>
-              ) : (
+              ) : signedIn ? (
                 <p>
-                  The next chapter is larger than your remaining {remaining.toLocaleString()} characters.
+                  The next chapter is larger than your remaining narration allowance. Save the project to continue in Studio.
                 </p>
-              )}
+              ) : null}
               {narrationPlan.beyondBudget.length > 0 ? (
-                <p>
-                  {narrationPlan.beyondBudget.length} later chapter{narrationPlan.beyondBudget.length === 1 ? "" : "s"} won&apos;t fit your remaining allowance. Save the project to continue in Studio.
+                <p className={signedIn ? undefined : "font-medium text-foreground"}>
+                  {signedIn
+                    ? `${chapterCountLabel(narrationPlan.beyondBudget.length, "later chapter")} won't fit your remaining allowance. Save the project to continue in Studio.`
+                    : `The free preview covers the first part of the book. ${chapterCountLabel(narrationPlan.beyondBudget.length, "more chapter")} need${narrationPlan.beyondBudget.length === 1 ? "s" : ""} a free account; your finished chapters come with you.`}
                 </p>
               ) : null}
             </div>
@@ -1148,7 +1141,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
             {busyGenerating ? (
               <p className="text-sm">
                 {batchRunning && generation && progressChapter
-                  ? `Generating ${Math.min(generation.completedChapters + 1, generation.totalChapters)} of ${generation.totalChapters}: ${progressChapter.title}${chunkProgressLabel(progressChapter)} (${formatSpokenMinutes(remainingBatchWords)} remaining). `
+                  ? `Generating ${Math.min(generation.completedChapters + 1, generation.totalChapters)} of ${generation.totalChapters}: ${progressChapter.title}${chunkProgressLabel(progressChapter)} (${formatSpokenLength(remainingBatchSeconds)} remaining). `
                   : progressChapter
                     ? `Generating “${progressChapter.title}”${chunkProgressLabel(progressChapter)}. `
                     : "Starting narration... "}
@@ -1224,10 +1217,17 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
         <SaveProjectCta
           projectId={projectId}
           signedIn={signedIn}
-          reason={
-            leftoverChapters.length > 0
-              ? "The remaining chapters stay with the project. Save it to finish narration in Studio."
+          title={
+            !signedIn && narrationPlan.beyondBudget.length > 0
+              ? `Narrate the remaining ${chapterCountLabel(narrationPlan.beyondBudget.length, "chapter")}`
               : undefined
+          }
+          reason={
+            !signedIn && narrationPlan.beyondBudget.length > 0
+              ? "Create a free account to finish this book in Studio. The chapters you've already made move with it."
+              : leftoverChapters.length > 0
+                ? "The remaining chapters stay with the project. Save it to finish narration in Studio."
+                : undefined
           }
         />
       ) : null}

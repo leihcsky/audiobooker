@@ -4,7 +4,7 @@ import { planNarrationWithinBudget, type BudgetChapter } from "@/lib/tools/narra
 function chapter(overrides: Partial<BudgetChapter> & Pick<BudgetChapter, "id" | "orderIndex" | "characterCount">): BudgetChapter {
   return {
     title: overrides.id,
-    wordCount: overrides.characterCount,
+    estimatedSeconds: overrides.characterCount,
     included: true,
     hasAudio: false,
     ...overrides,

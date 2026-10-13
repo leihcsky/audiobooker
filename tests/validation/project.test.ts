@@ -6,9 +6,9 @@ import {
 } from "@/lib/validation/project";
 
 describe("project validation", () => {
-  it("rejects an empty title", () => {
-    const result = createProjectSchema.safeParse({ title: "   " });
-    expect(result.success).toBe(false);
+  it("allows a blank or missing title", () => {
+    expect(createProjectSchema.safeParse({ title: "   " }).success).toBe(true);
+    expect(createProjectSchema.safeParse({}).success).toBe(true);
   });
 
   it("rejects an invalid project ID", () => {
@@ -17,7 +17,7 @@ describe("project validation", () => {
   });
 
   it("rejects an invalid create payload", () => {
-    const result = createProjectSchema.safeParse({ author: "Jane" });
+    const result = createProjectSchema.safeParse({ title: "a".repeat(256) });
     expect(result.success).toBe(false);
   });
 

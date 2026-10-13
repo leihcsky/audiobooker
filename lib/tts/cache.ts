@@ -109,7 +109,11 @@ export async function writeTtsCache(input: {
         sizeBytes: input.audio.length,
         durationSeconds: input.durationSeconds,
       },
-      update: { lastUsedAt: new Date() },
+      update: {
+        lastUsedAt: new Date(),
+        sizeBytes: input.audio.length,
+        durationSeconds: input.durationSeconds,
+      },
     });
   } catch (error) {
     console.info("tts_cache_write_failed", { message: errorMessage(error) });
