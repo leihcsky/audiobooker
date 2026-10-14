@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { FreeAllowance } from "@/components/marketing/free-allowance";
+import { SampleShowcase } from "@/components/samples/sample-showcase";
 import { AudiobookTool } from "@/components/seo-tools/audiobook-tool";
+import { samplesForFormats } from "@/lib/samples/samples";
 import { seoToolJsonLd, serializeJsonLd } from "@/lib/tools/seo-page";
 import { seoToolName, type SeoSection, type SeoToolConfig } from "@/lib/tools/tool-config";
 
@@ -41,6 +44,8 @@ export function SeoToolPage({ config, signedIn }: SeoToolPageProps) {
         <AudiobookTool config={config} signedIn={signedIn} />
       </div>
 
+      <SampleShowcase samples={samplesForFormats(config.supportedFormats)} showAllLink />
+
       <section className="mt-16">
         <h2 className="font-serif text-2xl">{config.howToTitle}</h2>
         <ol className="mt-4 list-decimal space-y-2 pl-6 text-muted-foreground">
@@ -54,6 +59,7 @@ export function SeoToolPage({ config, signedIn }: SeoToolPageProps) {
         <ContentSection key={section.heading} section={section} />
       ))}
 
+      <FreeAllowance />
       <section className="mt-12">
         <h2 className="font-serif text-2xl">Frequently asked questions</h2>
         <dl className="mt-4 space-y-6">

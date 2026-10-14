@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 import { auth } from "@/lib/auth/auth";
+import { planStandardListening } from "@/lib/billing/allowance-copy";
 import { MINUTE_PACKS, type MinutePack } from "@/lib/billing/credit-packs";
 import { getUserPlan } from "@/lib/billing/entitlements";
 import { PLANS, type PlanDefinition, type PlanId } from "@/lib/billing/plans";
 import { remainingMinutes } from "@/lib/billing/premium-usage";
+import { bookCostComparison, pricingFaq, pricingJsonLd } from "@/lib/billing/pricing-facts";
 import { PRICE_TAX_NOTE, REFUND_WINDOW_DAYS } from "@/lib/legal";
+import { serializeJsonLd } from "@/lib/tools/seo-page";
 import { getSiteUrl } from "@/lib/tools/site";
 
 export function generateMetadata(): Metadata {
@@ -21,14 +24,13 @@ export function generateMetadata(): Metadata {
 const BUTTON_CLASS =
   "inline-flex h-10 w-full items-center justify-center rounded-md px-4 text-sm font-medium";
 
+const PLAN_TAGLINES: Record<PlanId, string> = {
+  free: "Listen to your own books and try the whole workflow.",
+  creator: "For authors preparing an audiobook to publish.",
+};
+
 function features(plan: PlanDefinition): string[] {
-  const list = [
-    `${plan.maxProjects} saved projects`,
-    "Standard voices",
-    "Premium voices, paid with premium minutes",
-    "Chapter editing and regeneration",
-    "MP3 and M4B export",
-  ];
+  const list: string[] = [];
   if (plan.publishMastering) {
     list.push("Publish-ready MP3 for Spotify and Google Play, with a quality report");
   }
@@ -45,6 +47,13 @@ function features(plan: PlanDefinition): string[] {
   if (plan.discountedMinutePacks) {
     list.push("Lower prices on minute packs");
   }
+  list.push(
+    `${plan.maxProjects} saved projects`,
+    `Standard voices, ${planStandardListening(plan)} of narration a month (fair use)`,
+    "Premium voices, paid with premium minutes",
+    "Chapter editing and regeneration",
+    "MP3 and M4B export",
+  );
   return list;
 }
 
@@ -55,6 +64,13 @@ export default async function PricingPage() {
 
   return (
     <main className="mx-auto w-full max-w-4xl px-6 py-16">
+      {pricingJsonLd(getSiteUrl()).map((item, index) => (
+        <script
+          key={`pricing-ld-${index}`}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(item) }}
+        />
+      ))}
       <div className="text-center">
         <h1 className="font-serif text-4xl tracking-tight">Pricing</h1>
         <p className="mt-3 text-muted-foreground">
@@ -67,8 +83,47 @@ export default async function PricingPage() {
         ))}
       </div>
       <MinutePacks creator={currentPlanId === "creator"} signedIn={currentPlanId !== null} />
+      <BookCost />
       <p className="mt-10 text-center text-sm text-muted-foreground">{PRICE_TAX_NOTE}</p>
+      <PricingFaq />
     </main>
+  );
+}
+
+function BookCost() {
+  const { hours, rows } = bookCostComparison();
+  return (
+    <section className="mt-16">
+      <h2 className="text-center font-serif text-3xl tracking-tight">What a {hours}-hour audiobook costs</h2>
+      <dl className="mt-8 divide-y divide-border rounded-xl border border-border text-sm">
+        {rows.map((row) => (
+          <div
+            key={row.option}
+            className="grid gap-1 p-4 sm:grid-cols-[minmax(0,14rem)_8rem_minmax(0,1fr)] sm:items-baseline sm:gap-6"
+          >
+            <dt className="font-medium">{row.option}</dt>
+            <dd className="text-lg font-semibold whitespace-nowrap">{row.cost}</dd>
+            <dd className="text-muted-foreground">{row.detail}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function PricingFaq() {
+  return (
+    <section className="mt-16">
+      <h2 className="font-serif text-3xl tracking-tight">Pricing questions</h2>
+      <dl className="mt-6 space-y-6">
+        {pricingFaq().map((item) => (
+          <div key={item.question}>
+            <dt className="font-medium">{item.question}</dt>
+            <dd className="mt-1 text-muted-foreground">{item.answer}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
@@ -94,6 +149,7 @@ function PlanCard({ plan, currentPlanId }: { plan: PlanDefinition; currentPlanId
           <span className="text-base font-normal text-muted-foreground"> / month</span>
         ) : null}
       </p>
+      <p className="mt-2 text-sm text-muted-foreground">{PLAN_TAGLINES[plan.id]}</p>
       <ul className="mt-6 flex-1 space-y-2 text-sm">
         {features(plan).map((item) => (
           <li key={item}>✓ {item}</li>

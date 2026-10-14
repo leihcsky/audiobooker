@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { auth } from "@/lib/auth/auth";
 import { AccountMenu } from "@/components/account/account-menu";
-import { BrandLogo, LogoMark } from "@/components/brand/logo";
-import { LEGAL_CONTACT_EMAIL, LEGAL_LINKS } from "@/lib/legal";
+import { BrandLogo } from "@/components/brand/logo";
+import { SiteFooter } from "@/components/marketing/site-footer";
 
 const NAV_LINKS = [
   { href: "/audiobook-maker", label: "Maker" },
@@ -58,49 +58,7 @@ export default async function MarketingLayout({ children }: { children: ReactNod
         </div>
       </header>
       <div className="flex-1">{children}</div>
-      <footer className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-muted-foreground">
-          <p className="inline-flex items-center gap-2">
-            <LogoMark className="size-6 shrink-0" />
-            <span>Audiobooker — your online audiobook production studio.</span>
-          </p>
-          <nav className="flex flex-wrap gap-4">
-            <Link href="/audiobook-maker" className="hover:underline">
-              Audiobook Maker
-            </Link>
-            <Link href="/epub-to-audiobook" className="hover:underline">
-              EPUB to Audiobook
-            </Link>
-            <Link href="/pdf-to-audiobook" className="hover:underline">
-              PDF to Audiobook
-            </Link>
-            <Link href="/ebook-to-audiobook" className="hover:underline">
-              Ebook to Audiobook
-            </Link>
-            <Link href="/publish-audiobook" className="hover:underline">
-              Publishing Guide
-            </Link>
-            <Link href="/pricing" className="hover:underline">
-              Pricing
-            </Link>
-          </nav>
-        </div>
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-6 pb-8 text-xs text-muted-foreground">
-          <nav className="flex flex-wrap gap-4">
-            {LEGAL_LINKS.map((item) => (
-              <Link key={item.href} href={item.href} className="hover:underline">
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          <p>
-            Support:{" "}
-            <a href={`mailto:${LEGAL_CONTACT_EMAIL}`} className="underline hover:text-foreground">
-              {LEGAL_CONTACT_EMAIL}
-            </a>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
