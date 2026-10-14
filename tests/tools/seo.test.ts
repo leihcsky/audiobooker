@@ -109,6 +109,12 @@ describe("SEO tools", () => {
     }
   });
 
+  it("lists pricing but not the auth pages in the sitemap", () => {
+    const urls = sitemap().map((entry) => entry.url);
+    expect(urls.some((url) => url.endsWith("/pricing"))).toBe(true);
+    expect(urls.some((url) => url.endsWith("/login") || url.endsWith("/signup"))).toBe(false);
+  });
+
   it("keeps Studio out of robots indexing", () => {
     const rules = robots().rules;
     const rule = Array.isArray(rules) ? rules[0] : rules;

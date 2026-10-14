@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -8,6 +9,11 @@ import { SignupForm } from "@/components/auth/signup-form";
 import { isGoogleSignInEnabled } from "@/lib/auth/google-account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrandLogo } from "@/components/brand/logo";
+
+export const metadata: Metadata = {
+  title: "Sign up — Audiobooker",
+  robots: { index: false },
+};
 
 type SignupPageProps = {
   searchParams: Promise<{ claim?: string }>;

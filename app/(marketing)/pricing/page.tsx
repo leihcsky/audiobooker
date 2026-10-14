@@ -7,12 +7,16 @@ import { getUserPlan } from "@/lib/billing/entitlements";
 import { PLANS, type PlanDefinition, type PlanId } from "@/lib/billing/plans";
 import { remainingMinutes } from "@/lib/billing/premium-usage";
 import { REFUND_WINDOW_DAYS } from "@/lib/legal";
+import { getSiteUrl } from "@/lib/tools/site";
 
-export const metadata: Metadata = {
-  title: "Pricing — Audiobooker",
-  description: "Create audiobooks for free. Upgrade when you need more projects and premium voices.",
-  robots: { index: false },
-};
+export function generateMetadata(): Metadata {
+  const canonical = `${getSiteUrl()}/pricing`;
+  return {
+    title: "Pricing — Audiobooker",
+    description: "Create audiobooks for free. Upgrade when you need more projects and premium voices.",
+    alternates: { canonical },
+  };
+}
 
 const BUTTON_CLASS =
   "inline-flex h-10 w-full items-center justify-center rounded-md px-4 text-sm font-medium";
