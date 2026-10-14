@@ -42,7 +42,9 @@ export default function PrivacyPage() {
             </>,
             <>
               <strong>Usage.</strong> Narration minutes, jobs, and simple first-party events such as “upload
-              started” or “export downloaded”. We do not use third-party analytics or advertising trackers.
+              started” or “export downloaded”. We also use Google Analytics and Plausible to understand how visitors
+              find and use the site, such as pages viewed, referring sites, device type, and approximate location.
+              We do not use advertising trackers.
             </>,
             <>
               <strong>Payments.</strong> Payments are handled by Waffo, our merchant of record. We receive the
@@ -83,7 +85,12 @@ export default function PrivacyPage() {
               <strong>Waffo</strong> — processes payments and subscriptions as merchant of record.
             </>,
             <>
-              <strong>Google</strong> — confirms your identity when you choose to sign in with Google.
+              <strong>Google</strong> — confirms your identity when you choose to sign in with Google, and
+              provides site analytics (Google Analytics).
+            </>,
+            <>
+              <strong>Plausible</strong> — privacy-friendly site analytics that uses no cookies and stores no
+              personal data.
             </>,
             <>
               <strong>Our hosting provider</strong> — runs the servers and database.
@@ -96,7 +103,12 @@ export default function PrivacyPage() {
       <LegalSection title="Cookies">
         <p>
           We use a sign-in cookie to keep you logged in and, on the free tools, an anonymous session cookie that
-          remembers your temporary project. We do not use advertising cookies.
+          remembers your temporary project. Google Analytics sets its own cookies to count visits and tell new
+          visitors from returning ones. You can block them with your browser settings or Google&apos;s{" "}
+          <a href="https://tools.google.com/dlpage/gaoptout" className="underline" rel="noopener noreferrer">
+            opt-out add-on
+          </a>
+          . We do not use advertising cookies.
         </p>
       </LegalSection>
 

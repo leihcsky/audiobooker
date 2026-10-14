@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { PlausibleAnalytics } from "@/components/analytics/plausible";
 import { getSiteUrl } from "@/lib/tools/site";
 import "./globals.css";
 
@@ -34,7 +36,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        {children}
+        <GoogleAnalytics />
+        <PlausibleAnalytics />
+      </body>
     </html>
   );
 }
