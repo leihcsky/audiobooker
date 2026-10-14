@@ -96,16 +96,6 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         <p className="max-w-3xl text-muted-foreground">{project.description}</p>
       ) : null}
 
-      {detail.chapters.length > 0 ? (
-        <ProjectWorkspace
-          projectId={project.id}
-          chapters={detail.chapters}
-          progress={detail.progress}
-          generation={detail.generation}
-          premiumAvailableSeconds={premium.balance.availableSeconds}
-        />
-      ) : null}
-
       <SourceIngestionPanel
         projectId={project.id}
         sourceFiles={detail.sourceFiles}
@@ -113,6 +103,17 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         chapterCount={detail.chapters.length}
         narrating={narrating}
       />
+
+      {detail.chapters.length > 0 ? (
+        <ProjectWorkspace
+          projectId={project.id}
+          book={{ title: project.title, hasCover: project.hasCover, updatedAt: project.updatedAt }}
+          chapters={detail.chapters}
+          progress={detail.progress}
+          generation={detail.generation}
+          premiumAvailableSeconds={premium.balance.availableSeconds}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>

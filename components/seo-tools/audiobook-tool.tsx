@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { BookSummary, SelectionSummary } from "@/components/projects/book-summary";
+import { useProjectCover } from "@/components/projects/use-project-cover";
 import { BookPlayer } from "@/components/seo-tools/book-player";
 import { SaveProjectCta } from "@/components/seo-tools/save-project-cta";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
@@ -15,6 +17,7 @@ import {
   clearToolProjectBinding,
   isProjectBoundToTool,
 } from "@/lib/tools/tool-workspace";
+import { bookStats } from "@/lib/projects/book-stats";
 import type { ChapterSummary, JobSummary, ProjectDetailDto } from "@/lib/projects/project.detail";
 import type { ExportDto } from "@/lib/export/export.dto";
 import { titleFromFilename } from "@/lib/projects/project-title";
@@ -169,7 +172,6 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
   const [voices, setVoices] = useState<VoiceOption[]>([]);
   const [chosenVoiceId, setVoiceId] = useState("");
   const [speed, setSpeed] = useState(DEFAULT_SPEECH_SPEED);
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
   const [exportFormat, setExportFormat] = useState<"mp3" | "m4b">("mp3");
@@ -212,14 +214,8 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
     [selectedChapters],
   );
   const remaining = limits?.remainingCharacters ?? 0;
-  const totalWords = useMemo(
-    () => chapters.reduce((sum, chapter) => sum + chapter.wordCount, 0),
-    [chapters],
-  );
-  const totalSeconds = useMemo(
-    () => chapters.reduce((sum, chapter) => sum + chapter.estimatedSeconds, 0),
-    [chapters],
-  );
+  const stats = useMemo(() => bookStats(chapters), [chapters]);
+  const coverUrl = useProjectCover(projectId, detail?.project.hasCover ?? false, detail?.project.updatedAt);
   const narrationPlan = useMemo(
     () => planNarrationWithinBudget(chapters, remaining),
     [chapters, remaining],
@@ -542,25 +538,6 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
     return () => window.clearInterval(timer);
   }, [activeExport?.id, downloadExport, projectId, recordEvent]);
 
-  useEffect(() => {
-    if (!projectId || !detail?.project.hasCover) {
-      return;
-    }
-    const id = projectId;
-    let cancelled = false;
-    void fetch(`/api/projects/${id}/cover`)
-      .then(async (response) => {
-        const payload = await readJson<{ success: true; data: { cover?: { coverUrl?: string } } }>(response);
-        if (!cancelled && !isApiError(payload) && "data" in payload && payload.data.cover?.coverUrl) {
-          setCoverUrl(payload.data.cover.coverUrl);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [detail?.project.hasCover, detail?.project.updatedAt, projectId]);
-
   async function ensureProject(title: string): Promise<string> {
     if (projectId) {
       return projectId;
@@ -596,7 +573,6 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
   function clearLocalBookState() {
     setProjectId(null);
     setDetail(null);
-    setCoverUrl(null);
     setPreviewUrl(null);
     audioUrlsRef.current = {};
     audioPending.current.clear();
@@ -969,47 +945,36 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
       {chapters.length > 0 ? (
         <Card>
           <CardContent className="space-y-5 pt-6">
-            <div className="flex items-start gap-5">
-              {detail?.project.hasCover && coverUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={coverUrl}
-                  alt={`Cover of ${detail?.project.title ?? "the book"}`}
-                  className="h-40 w-28 shrink-0 rounded-md border border-border object-cover"
-                />
-              ) : null}
-              <div className="min-w-0 space-y-2">
-                <CardTitle className="break-words">{detail?.project.title ?? "Untitled book"}</CardTitle>
-                {detail?.project.author ? (
-                  <p className="text-sm">by {detail.project.author}</p>
-                ) : null}
-                <p className="text-sm text-muted-foreground">
-                  {chapters.length} chapters · {totalWords.toLocaleString()} words ·{" "}
-                  {formatSpokenLength(totalSeconds)}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void persistIncluded(chapters.map((chapter) => chapter.id))}
-                disabled={parsing || busyGenerating}
-              >
-                Select all
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void persistIncluded([])}
-                disabled={parsing || busyGenerating}
-              >
-                Select none
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {selectedChapters.length} of {chapters.length} chapters selected
-              </span>
-            </div>
+            <BookSummary
+              title={detail?.project.title ?? "Untitled book"}
+              author={detail?.project.author ?? null}
+              coverUrl={coverUrl}
+              stats={stats.book}
+            />
+            <SelectionSummary
+              selected={stats.selected}
+              totalChapters={chapters.length}
+              actions={
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void persistIncluded(chapters.map((chapter) => chapter.id))}
+                    disabled={parsing || busyGenerating}
+                  >
+                    Select all
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void persistIncluded([])}
+                    disabled={parsing || busyGenerating}
+                  >
+                    Select none
+                  </Button>
+                </>
+              }
+            />
             <ol className="divide-y divide-border text-sm">
               {chapters.map((chapter) => {
                 const currentBatch = batchChapter?.id === chapter.id;

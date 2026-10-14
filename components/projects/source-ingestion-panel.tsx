@@ -198,24 +198,42 @@ export function SourceIngestionPanel({
           <CardDescription>Upload your book. Supported: EPUB, PDF, TXT.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <label className="inline-flex h-10 cursor-pointer items-center rounded-md border border-border px-4 text-sm font-medium hover:bg-muted">
-            {pending === "upload" ? "Uploading..." : pending === "parse" ? "Reading your book..." : "Choose File"}
-            <input
-              type="file"
-              accept=".epub,.pdf,.txt,application/epub+zip,application/pdf,text/plain"
-              className="sr-only"
-              disabled={pending !== null || polling}
-              onChange={onUpload}
-            />
-          </label>
-
-          {latestSource ? (
-            <p className="text-sm text-muted-foreground">
-              {latestSource.originalFilename} · {latestSource.type} · {latestSource.status}
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">No source uploaded yet.</p>
-          )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {latestSource ? (
+              <p className="min-w-0 text-sm">
+                <span className="font-medium break-all">{latestSource.originalFilename}</span>
+                <span className="text-muted-foreground">
+                  {" · "}
+                  {latestSource.type} · {latestSource.status.toLowerCase()}
+                </span>
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">No source uploaded yet.</p>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {latestSource && chapterCount > 0 && !polling && latestParseJob?.status !== "FAILED" ? (
+                <Button variant="outline" onClick={onParseClick} disabled={pending !== null || narrating}>
+                  Parse again
+                </Button>
+              ) : null}
+              <label className="inline-flex h-10 cursor-pointer items-center rounded-md border border-border px-4 text-sm font-medium hover:bg-muted">
+                {pending === "upload"
+                  ? "Uploading..."
+                  : pending === "parse"
+                    ? "Reading your book..."
+                    : latestSource
+                      ? "Replace file"
+                      : "Choose File"}
+                <input
+                  type="file"
+                  accept=".epub,.pdf,.txt,application/epub+zip,application/pdf,text/plain"
+                  className="sr-only"
+                  disabled={pending !== null || polling}
+                  onChange={onUpload}
+                />
+              </label>
+            </div>
+          </div>
 
           {polling ? (
             <div className="rounded-md bg-muted px-4 py-3 text-sm">
@@ -233,12 +251,6 @@ export function SourceIngestionPanel({
                 Try Again
               </Button>
             </div>
-          ) : null}
-
-          {latestSource && chapterCount > 0 && !polling && latestParseJob?.status !== "FAILED" ? (
-            <Button variant="outline" onClick={onParseClick} disabled={pending !== null || narrating}>
-              Parse again
-            </Button>
           ) : null}
 
           {latestSource && chapterCount === 0 && latestSource.status === "UPLOADED" && !polling && pending === null && latestParseJob?.status !== "FAILED" ? (

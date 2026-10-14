@@ -9,6 +9,9 @@ import { ArrowDownIcon, ArrowUpIcon, PencilIcon, TrashIcon } from "@/components/
 import { Label } from "@/components/ui/label";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
 import { PremiumEstimate } from "@/components/billing/premium-estimate";
+import { BookSummary, SelectionSummary } from "@/components/projects/book-summary";
+import { useProjectCover } from "@/components/projects/use-project-cover";
+import { bookStats } from "@/lib/projects/book-stats";
 import { useVoiceOptions, VoiceSelect } from "@/components/tts/voice-select";
 import { useVoicePreview, VoicePreviewButton, VoicePreviewPlayer } from "@/components/tts/voice-preview";
 import { formatAudioDuration } from "@/lib/audio/format-duration";
@@ -23,6 +26,7 @@ type ApiErrorPayload = { error?: { code?: string; message?: string } };
 
 type ProjectWorkspaceProps = {
   projectId: string;
+  book: { title: string; hasCover: boolean; updatedAt: string };
   chapters: ChapterSummary[];
   progress: ProjectProgress;
   generation: ProjectGenerationSummary | null;
@@ -72,6 +76,7 @@ function needsNarration(chapter: ChapterSummary): boolean {
 
 export function ProjectWorkspace({
   projectId,
+  book,
   chapters,
   progress,
   generation,
@@ -115,10 +120,8 @@ export function ProjectWorkspace({
   const currentChapter = generation?.currentChapterId
     ? chapters.find((chapter) => chapter.id === generation.currentChapterId) ?? null
     : null;
-  const selectedCount = includedIds.size;
-  const selectedSeconds = displayChapters
-    .filter((chapter) => chapter.included)
-    .reduce((sum, chapter) => sum + (chapter.audioDurationSeconds ?? chapter.estimatedSeconds), 0);
+  const stats = bookStats(displayChapters);
+  const coverUrl = useProjectCover(projectId, book.hasCover, book.updatedAt);
   const selectedVoice = voices.find((voice) => voice.id === voiceId);
   const premiumSelected = selectedVoice?.tier === "PREMIUM";
   const premiumNeeded = premiumSelected
@@ -242,6 +245,12 @@ export function ProjectWorkspace({
   return (
     <div className="space-y-6">
       <Card>
+        <CardContent className="pt-6">
+          <BookSummary title={book.title} author={null} coverUrl={coverUrl} stats={stats.book} showTitle={false} />
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle>Narration</CardTitle>
           <CardDescription>
@@ -344,25 +353,29 @@ export function ProjectWorkspace({
         <CardHeader>
           <CardTitle>Chapters</CardTitle>
           <CardDescription>
-            Open a chapter to edit its text, listen to it, or regenerate it. Checked chapters go into the audiobook
-            ({selectedCount} of {chapters.length}
-            {selectedSeconds > 0 ? ` · about ${formatSpokenLength(selectedSeconds)}` : ""}).
+            Open a chapter to edit its text, listen to it, or regenerate it. Checked chapters go into the audiobook.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => persistIncluded(chapters.map((chapter) => chapter.id))}
-              disabled={narrating}
-            >
-              Select all
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => persistIncluded([])} disabled={narrating}>
-              Select none
-            </Button>
-          </div>
+          <SelectionSummary
+            selected={stats.selected}
+            totalChapters={chapters.length}
+            actions={
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => persistIncluded(chapters.map((chapter) => chapter.id))}
+                  disabled={narrating}
+                >
+                  Select all
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => persistIncluded([])} disabled={narrating}>
+                  Select none
+                </Button>
+              </>
+            }
+          />
           <ol className="space-y-2">
             {displayChapters.map((chapter, index) => {
               const state = chapterState(chapter);
