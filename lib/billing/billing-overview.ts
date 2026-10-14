@@ -32,8 +32,11 @@ export type BillingActivity = {
 };
 
 export type ReturnedOrder = {
+  id: string;
   status: "PENDING" | "PAID" | "REFUNDED";
   kind: "SUBSCRIPTION" | "MINUTE_PACK";
+  itemId: string;
+  amountUsd: number;
   premiumSeconds: number;
 };
 
@@ -79,9 +82,9 @@ async function findReturnedOrder(userId: string, orderId?: string): Promise<Retu
   }
   const order = await prisma.billingOrder.findFirst({
     where: { id: orderId, userId },
-    select: { status: true, kind: true, premiumSeconds: true },
+    select: { id: true, status: true, kind: true, itemId: true, amountUsd: true, premiumSeconds: true },
   });
-  return order ?? null;
+  return order ? { ...order, amountUsd: Number(order.amountUsd) } : null;
 }
 
 export async function getBillingOverview(userId: string, orderId?: string): Promise<BillingOverview> {

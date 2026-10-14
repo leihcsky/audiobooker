@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { trackEvent } from "@/lib/analytics/track";
 
 type SaveProjectCtaProps = {
   projectId: string;
@@ -25,6 +26,7 @@ export function SaveProjectCta({ projectId, signedIn, title, reason }: SaveProje
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "tool_signup_clicked", projectId }),
     }).catch(() => undefined);
+    trackEvent("tool_signup_clicked", { signed_in: signedIn ? "yes" : "no" });
 
     if (!signedIn) {
       router.push(`/signup?claim=${encodeURIComponent(projectId)}`);

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { BookPlayer } from "@/components/seo-tools/book-player";
 import { SaveProjectCta } from "@/components/seo-tools/save-project-cta";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
+import { trackEvent } from "@/lib/analytics/track";
 import { planNarrationWithinBudget } from "@/lib/tools/narration-plan";
 import { acceptAttribute, type SeoToolConfig, type ToolFormat } from "@/lib/tools/tool-config";
 import {
@@ -483,7 +484,8 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
     }
     triggerDownload(payload.data.download.downloadUrl);
     setDownloadStarted(true);
-  }, []);
+    trackEvent("tool_download", { tool: config.slug });
+  }, [config.slug]);
 
   useEffect(() => {
     if (!projectId) {
@@ -716,6 +718,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
         setUploadError(apiErrorCopy(payload));
         return;
       }
+      trackEvent("tool_upload_completed", { tool: config.slug });
       setPreviewUrl(null);
       audioUrlsRef.current = {};
       audioPending.current.clear();
@@ -854,6 +857,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
         );
         return;
       }
+      trackEvent("tool_generate_started", { tool: config.slug });
       await loadProject(projectId).catch(() => undefined);
     } finally {
       setPending(null);

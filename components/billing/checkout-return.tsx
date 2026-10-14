@@ -5,15 +5,40 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReturnedOrder } from "@/lib/billing/billing-overview";
 import { remainingMinutes } from "@/lib/billing/premium-usage";
+import { trackEvent } from "@/lib/analytics/track";
 
 const POLL_MS = 3000;
 const MAX_POLLS = 40;
+const TRACKED_KEY_PREFIX = "ab_purchase_tracked:";
+
+function trackPurchaseOnce(order: ReturnedOrder) {
+  const key = `${TRACKED_KEY_PREFIX}${order.id}`;
+  try {
+    if (window.localStorage.getItem(key)) {
+      return;
+    }
+    window.localStorage.setItem(key, "1");
+  } catch {
+    // Storage blocked: still report; GA de-duplicates by transaction_id.
+  }
+  trackEvent(
+    "purchase",
+    { transaction_id: order.id, item: order.itemId, kind: order.kind.toLowerCase() },
+    { amount: order.amountUsd, currency: "USD" },
+  );
+}
 
 export function CheckoutReturn({ order }: { order: ReturnedOrder }) {
   const router = useRouter();
   const [polls, setPolls] = useState(0);
   const pending = order.status === "PENDING";
   const gaveUp = pending && polls >= MAX_POLLS;
+
+  useEffect(() => {
+    if (order.status === "PAID") {
+      trackPurchaseOnce(order);
+    }
+  }, [order]);
 
   useEffect(() => {
     if (!pending || polls >= MAX_POLLS) {

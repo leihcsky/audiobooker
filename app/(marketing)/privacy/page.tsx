@@ -108,7 +108,8 @@ export default function PrivacyPage() {
       <LegalSection title="Cookies">
         <p>
           We use a sign-in cookie to keep you logged in and, on the free tools, an anonymous session cookie that
-          remembers your temporary project. Google Analytics sets its own cookies to count visits and tell new
+          remembers your temporary project. When you create an account with Google, a cookie lasting a few minutes
+          lets our analytics count the sign-up. Google Analytics sets its own cookies to count visits and tell new
           visitors from returning ones. You can block them with your browser settings or Google&apos;s{" "}
           <a href="https://tools.google.com/dlpage/gaoptout" className="underline" rel="noopener noreferrer">
             opt-out add-on

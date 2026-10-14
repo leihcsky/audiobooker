@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { trackEvent } from "@/lib/analytics/track";
 
 type ApiError = {
   success: false;
@@ -49,10 +50,11 @@ export function SignupForm() {
       setError(
         signupPayload && "error" in signupPayload
           ? signupPayload.error.message
-          : "Unable to create account.",
+          :         "Unable to create account.",
       );
       return;
     }
+    trackEvent("sign_up", { method: "email" });
 
     const result = await signIn("credentials", {
       email,

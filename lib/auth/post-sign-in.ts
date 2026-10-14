@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/api/errors";
+import { prisma } from "@/lib/db/prisma";
 import { recordToolEvent } from "@/lib/tools/events";
 import { claimProjectForUser, claimSessionProjectsForUser } from "@/lib/tools/project";
 import { projectIdSchema } from "@/lib/validation/project";
@@ -9,6 +10,19 @@ export function safeRedirectPath(raw: string | null, fallback = "/studio"): stri
     return fallback;
   }
   return raw;
+}
+
+const NEW_ACCOUNT_WINDOW_MS = 5 * 60 * 1000;
+
+/** True when this OAuth sign-in just created the account (no password, created moments ago). */
+export async function isNewOAuthAccount(userId: string, now = new Date()): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { createdAt: true, passwordHash: true },
+  });
+  return Boolean(
+    user && user.passwordHash === null && now.getTime() - user.createdAt.getTime() < NEW_ACCOUNT_WINDOW_MS,
+  );
 }
 
 /**

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { trackEvent } from "@/lib/analytics/track";
 import type { BillingItemId } from "@/lib/billing/provider";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ export function CheckoutButton({
   async function startCheckout() {
     setPending(true);
     setError(null);
+    trackEvent("begin_checkout", { item });
     try {
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
