@@ -6,6 +6,7 @@ import { MINUTE_PACKS, type MinutePack } from "@/lib/billing/credit-packs";
 import { getUserPlan } from "@/lib/billing/entitlements";
 import { PLANS, type PlanDefinition, type PlanId } from "@/lib/billing/plans";
 import { remainingMinutes } from "@/lib/billing/premium-usage";
+import { REFUND_WINDOW_DAYS } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Pricing — Audiobooker",
@@ -141,6 +142,12 @@ function MinutePacks({ creator, signedIn }: { creator: boolean; signedIn: boolea
         <h2 className="font-serif text-3xl tracking-tight">Premium minute packs</h2>
         <p className="mt-2 text-muted-foreground">
           One-time purchase for any account. Purchased minutes never expire.
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Unused packs can be refunded within {REFUND_WINDOW_DAYS} days.{" "}
+          <Link href="/refunds" className="underline">
+            Refund policy
+          </Link>
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           1 premium minute = 1 minute of finished audio in a premium voice. Standard voices are included with fair use.

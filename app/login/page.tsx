@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { auth } from "@/lib/auth/auth";
 import { ClaimRedirect } from "@/components/auth/claim-redirect";
+import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { LoginForm } from "@/components/auth/login-form";
+import { isGoogleSignInEnabled } from "@/lib/auth/google-account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrandLogo } from "@/components/brand/logo";
 
@@ -24,6 +26,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   if (session?.user) {
     redirect("/studio");
   }
+  const googleEnabled = isGoogleSignInEnabled();
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-6 py-16">
@@ -33,11 +36,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <Card>
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
-          <CardDescription>Use your email and password to open Studio.</CardDescription>
+          <CardDescription>
+            {googleEnabled ? "Sign in to open Studio." : "Use your email and password to open Studio."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Suspense fallback={<p className="text-sm text-muted-foreground">Loading...</p>}>
-            <LoginForm />
+            <div className="space-y-4">
+              {googleEnabled ? <GoogleSignIn /> : null}
+              <LoginForm />
+            </div>
           </Suspense>
           <p className="mt-6 text-sm text-muted-foreground">
             Need an account?{" "}

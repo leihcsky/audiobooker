@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SEO_TOOLS } from "@/lib/tools/tool-config";
+import { LEGAL_LINKS } from "@/lib/legal";
 import { getSiteUrl } from "@/lib/tools/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -20,5 +21,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.6,
     },
+    ...LEGAL_LINKS.map((link) => ({
+      url: `${site}${link.href}`,
+      changeFrequency: "yearly" as const,
+      priority: 0.2,
+    })),
   ];
 }

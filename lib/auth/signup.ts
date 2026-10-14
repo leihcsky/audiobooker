@@ -6,11 +6,15 @@ import type { SignupInput } from "@/lib/validation/auth";
 export async function signupUser(input: SignupInput) {
   const existing = await prisma.user.findUnique({
     where: { email: input.email },
-    select: { id: true },
+    select: { id: true, passwordHash: true },
   });
 
   if (existing) {
-    throw conflict("An account with this email already exists.");
+    throw conflict(
+      existing.passwordHash
+        ? "An account with this email already exists."
+        : "This email signs in with Google. Use Continue with Google.",
+    );
   }
 
   const passwordHash = await hashPassword(input.password);

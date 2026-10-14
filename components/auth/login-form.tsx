@@ -7,12 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+function signInErrorMessage(code: string | null): string | null {
+  if (!code) {
+    return null;
+  }
+  if (code === "AccessDenied") {
+    return "Google sign-in needs a verified Google email address.";
+  }
+  return "Sign-in didn't complete. Please try again.";
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const claimId = searchParams.get("claim");
   const callbackUrl = searchParams.get("callbackUrl") ?? "/studio";
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => signInErrorMessage(searchParams.get("error")));
   const [pending, setPending] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -33,7 +43,11 @@ export function LoginForm() {
     setPending(false);
 
     if (!result || result.error) {
-      setError("Invalid email or password.");
+      setError(
+        result?.code === "google_account"
+          ? "This account signs in with Google. Use Continue with Google."
+          : "Invalid email or password.",
+      );
       return;
     }
 

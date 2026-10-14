@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { auth } from "@/lib/auth/auth";
 import { ClaimRedirect } from "@/components/auth/claim-redirect";
+import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { SignupForm } from "@/components/auth/signup-form";
+import { isGoogleSignInEnabled } from "@/lib/auth/google-account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrandLogo } from "@/components/brand/logo";
 
@@ -41,8 +43,22 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         </CardHeader>
         <CardContent>
           <Suspense fallback={<p className="text-sm text-muted-foreground">Loading...</p>}>
-            <SignupForm />
+            <div className="space-y-4">
+              {isGoogleSignInEnabled() ? <GoogleSignIn /> : null}
+              <SignupForm />
+            </div>
           </Suspense>
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            By creating an account you agree to the{" "}
+            <Link href="/terms" className="underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
           <p className="mt-6 text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link
