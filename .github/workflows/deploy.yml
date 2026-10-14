@@ -1,0 +1,56 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - master   # 改成你的分支（可能是 master）
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 2201   # 你的SSH端口
+          script: |
+            set -e
+
+            echo "🚀 Start Deploy"
+
+            # GitHub SSH is non-interactive, so ~/.bashrc (nvm) is skipped.
+            # Manual login works because nvm loads Node 20+; this session
+            # otherwise falls back to system Node 18, which Next.js 16 rejects.
+            export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              . "$NVM_DIR/nvm.sh"
+            elif [ -s /usr/local/nvm/nvm.sh ]; then
+              . /usr/local/nvm/nvm.sh
+            fi
+
+            cd /var/www/audiobooker
+
+            git fetch origin
+            git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)
+
+            if command -v nvm >/dev/null 2>&1; then
+              nvm use || nvm use 20
+            fi
+
+            echo "Node $(node -v) ($(command -v node))  npm $(npm -v)"
+            node -e "const [maj, min] = process.versions.node.split('.').map(Number); if (maj < 20 || (maj === 20 && min < 9)) { console.error('Next.js 16 needs Node >= 20.9.0'); process.exit(1) }"
+
+            # Full install (not --production): next build needs devDependencies
+            # (typescript, tailwindcss, postcss, autoprefixer, eslint-config-next, …).
+            npm install
+            npm run build
+
+            pm2 reload audiobooker || PORT=3005 pm2 start npm --name "audiobooker" -- start
+
+            pm2 save
+
+            echo "✅ Deploy Done"
