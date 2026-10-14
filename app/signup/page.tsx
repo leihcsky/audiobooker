@@ -9,6 +9,7 @@ import { SignupForm } from "@/components/auth/signup-form";
 import { isGoogleSignInEnabled } from "@/lib/auth/google-account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrandLogo } from "@/components/brand/logo";
+import { SupportContact } from "@/components/marketing/support-contact";
 
 export const metadata: Metadata = {
   title: "Sign up — Audiobooker",
@@ -58,8 +59,12 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
             By creating an account you agree to the{" "}
             <Link href="/terms" className="underline">
               Terms
-            </Link>{" "}
-            and{" "}
+            </Link>
+            ,{" "}
+            <Link href="/acceptable-use" className="underline">
+              Acceptable Use Policy
+            </Link>
+            , and{" "}
             <Link href="/privacy" className="underline">
               Privacy Policy
             </Link>
@@ -76,6 +81,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
           </p>
         </CardContent>
       </Card>
+      <SupportContact className="mt-6 text-center" />
     </main>
   );
 }

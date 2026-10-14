@@ -62,7 +62,12 @@ export default function PrivacyPage() {
         <p>
           To run the service: parse your books, narrate and export them, keep your projects, apply plan limits,
           process payments, prevent abuse, answer support requests, and improve the product. We do not sell your
-          data, show ads based on it, or use your books to train AI models.
+          data, show ads based on it, or use your books to train AI models. We do not routinely read your projects;
+          we look at a project&apos;s content only when investigating a report or a suspected breach of our{" "}
+          <Link href="/acceptable-use" className="underline">
+            Acceptable Use Policy
+          </Link>
+          , or when you ask us for help with it.
         </p>
       </LegalSection>
 

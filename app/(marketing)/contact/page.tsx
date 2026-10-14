@@ -52,6 +52,15 @@ export default function ContactPage() {
       </LegalSection>
 
       <LegalSection title="Copyright and abuse reports">
+        <p>
+          To report content that breaks our{" "}
+          <Link href="/acceptable-use" className="underline">
+            Acceptable Use Policy
+          </Link>
+          , such as sexual, violent, or hateful content, content that endangers children, or impersonation of a
+          real person, email us with the subject “Content report”. The policy explains what to include and how we
+          review reports.
+        </p>
         <p>If you believe someone has used Audiobooker to produce audio of your work without permission, send us:</p>
         <LegalList
           items={[

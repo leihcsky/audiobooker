@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth/auth";
 import { AccountMenu } from "@/components/account/account-menu";
 import { StudioNav } from "@/components/studio/studio-nav";
 import { BrandLogo } from "@/components/brand/logo";
+import { SupportContact } from "@/components/marketing/support-contact";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,9 @@ export default async function StudioLayout({
         </div>
       </header>
       <div className="mx-auto w-full max-w-5xl px-6 py-10">{children}</div>
+      <footer className="mx-auto w-full max-w-5xl px-6 pb-8">
+        <SupportContact />
+      </footer>
     </div>
   );
 }

@@ -111,7 +111,7 @@ describe("SEO tools", () => {
 
   it("lists pricing and company pages but not the auth pages in the sitemap", () => {
     const urls = sitemap().map((entry) => entry.url);
-    for (const path of ["/pricing", "/about", "/contact"]) {
+    for (const path of ["/pricing", "/about", "/contact", "/acceptable-use"]) {
       expect(urls.some((url) => url.endsWith(path))).toBe(true);
     }
     expect(urls.some((url) => url.endsWith("/login") || url.endsWith("/signup"))).toBe(false);

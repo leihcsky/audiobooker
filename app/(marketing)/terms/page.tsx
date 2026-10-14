@@ -56,15 +56,26 @@ export default function TermsPage() {
       </LegalSection>
 
       <LegalSection title="Acceptable use">
-        <p>Do not use Audiobooker to:</p>
+        <p>
+          Your use of Audiobooker must follow our{" "}
+          <Link href="/acceptable-use" className="underline">
+            Acceptable Use Policy
+          </Link>
+          , which is part of these terms. It prohibits uploading or narrating sexual (NSFW) content, violent or gory
+          content, hate speech, content that endangers children, deepfakes or impersonation of real people, and
+          content that infringes copyright or trademarks, and explains how to report content and how we review it.
+          You also may not:
+        </p>
         <LegalList
           items={[
-            "infringe copyright or other rights, or produce illegal, hateful, or harassing content;",
             "get around usage limits, for example with multiple accounts, scripts, or automated requests;",
             "interfere with the service, probe it for vulnerabilities, or resell access to it.",
           ]}
         />
-        <p>We may remove content or suspend accounts that break these rules.</p>
+        <p>
+          We may remove content, and warn, suspend, or close accounts that break these rules, as described in the
+          Acceptable Use Policy.
+        </p>
       </LegalSection>
 
       <LegalSection title="Free use and limits">

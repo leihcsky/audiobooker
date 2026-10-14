@@ -3,7 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth/auth";
 import { AccountMenu } from "@/components/account/account-menu";
 import { BrandLogo, LogoMark } from "@/components/brand/logo";
-import { LEGAL_LINKS } from "@/lib/legal";
+import { LEGAL_CONTACT_EMAIL, LEGAL_LINKS } from "@/lib/legal";
 
 const NAV_LINKS = [
   { href: "/audiobook-maker", label: "Maker" },
@@ -85,13 +85,21 @@ export default async function MarketingLayout({ children }: { children: ReactNod
             </Link>
           </nav>
         </div>
-        <nav className="mx-auto flex w-full max-w-5xl flex-wrap gap-4 px-6 pb-8 text-xs text-muted-foreground">
-          {LEGAL_LINKS.map((item) => (
-            <Link key={item.href} href={item.href} className="hover:underline">
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-6 pb-8 text-xs text-muted-foreground">
+          <nav className="flex flex-wrap gap-4">
+            {LEGAL_LINKS.map((item) => (
+              <Link key={item.href} href={item.href} className="hover:underline">
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <p>
+            Support:{" "}
+            <a href={`mailto:${LEGAL_CONTACT_EMAIL}`} className="underline hover:text-foreground">
+              {LEGAL_CONTACT_EMAIL}
+            </a>
+          </p>
+        </div>
       </footer>
     </div>
   );
