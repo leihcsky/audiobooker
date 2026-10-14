@@ -6,7 +6,7 @@ import { MINUTE_PACKS, type MinutePack } from "@/lib/billing/credit-packs";
 import { getUserPlan } from "@/lib/billing/entitlements";
 import { PLANS, type PlanDefinition, type PlanId } from "@/lib/billing/plans";
 import { remainingMinutes } from "@/lib/billing/premium-usage";
-import { REFUND_WINDOW_DAYS } from "@/lib/legal";
+import { PRICE_TAX_NOTE, REFUND_WINDOW_DAYS } from "@/lib/legal";
 import { getSiteUrl } from "@/lib/tools/site";
 
 export function generateMetadata(): Metadata {
@@ -67,6 +67,7 @@ export default async function PricingPage() {
         ))}
       </div>
       <MinutePacks creator={currentPlanId === "creator"} signedIn={currentPlanId !== null} />
+      <p className="mt-10 text-center text-sm text-muted-foreground">{PRICE_TAX_NOTE}</p>
     </main>
   );
 }

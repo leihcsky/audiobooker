@@ -109,9 +109,11 @@ describe("SEO tools", () => {
     }
   });
 
-  it("lists pricing but not the auth pages in the sitemap", () => {
+  it("lists pricing and company pages but not the auth pages in the sitemap", () => {
     const urls = sitemap().map((entry) => entry.url);
-    expect(urls.some((url) => url.endsWith("/pricing"))).toBe(true);
+    for (const path of ["/pricing", "/about", "/contact"]) {
+      expect(urls.some((url) => url.endsWith(path))).toBe(true);
+    }
     expect(urls.some((url) => url.endsWith("/login") || url.endsWith("/signup"))).toBe(false);
   });
 

@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth/session";
 import { getBillingOverview, type BillingOverview, type BillingPack } from "@/lib/billing/billing-overview";
 import { PLANS } from "@/lib/billing/plans";
 import { remainingMinutes } from "@/lib/billing/premium-usage";
+import { PRICE_TAX_NOTE } from "@/lib/legal";
 import { cn, formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -54,6 +55,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
             <PackCard key={pack.id} pack={pack} creator={overview.usage.plan.id === "creator"} />
           ))}
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">{PRICE_TAX_NOTE}</p>
       </section>
 
       <Activity overview={overview} />

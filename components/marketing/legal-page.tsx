@@ -1,16 +1,27 @@
 import type { ReactNode } from "react";
 import { LEGAL_CONTACT_EMAIL, LEGAL_LAST_UPDATED } from "@/lib/legal";
 
-export function LegalPage({ title, intro, children }: { title: string; intro: ReactNode; children: ReactNode }) {
+type LegalPageProps = {
+  title: string;
+  intro: ReactNode;
+  children: ReactNode;
+  /** "info" pages (About, Contact) have no revision date or closing contact line. */
+  variant?: "legal" | "info";
+};
+
+export function LegalPage({ title, intro, children, variant = "legal" }: LegalPageProps) {
+  const legal = variant === "legal";
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-16">
       <h1 className="font-serif text-4xl tracking-tight">{title}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Last updated {LEGAL_LAST_UPDATED}</p>
+      {legal ? <p className="mt-2 text-sm text-muted-foreground">Last updated {LEGAL_LAST_UPDATED}</p> : null}
       <div className="mt-6 text-lg text-muted-foreground">{intro}</div>
       <div className="mt-10 space-y-10">{children}</div>
-      <p className="mt-14 border-t border-border pt-6 text-sm text-muted-foreground">
-        Questions? Email <ContactEmail />.
-      </p>
+      {legal ? (
+        <p className="mt-14 border-t border-border pt-6 text-sm text-muted-foreground">
+          Questions? Email <ContactEmail />.
+        </p>
+      ) : null}
     </main>
   );
 }
