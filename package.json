@@ -16,6 +16,7 @@
     "billing:waffo-webhook": "node --env-file=.env scripts/waffo-webhook.mjs",
     "tts:edge-check": "node scripts/tts-edge-check.mjs",
     "analytics:funnel": "node --env-file=.env scripts/analytics-funnel.mjs",
+    "samples:stats": "node --env-file=.env scripts/sample-stats.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {
