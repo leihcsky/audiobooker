@@ -139,6 +139,12 @@ export async function runParseJob(jobId: string): Promise<void> {
       sourceFileId: source.id,
       jobId,
       errorCode: code,
+      ...(error instanceof AppError
+        ? {}
+        : {
+            errorName: error instanceof Error ? error.name : typeof error,
+            errorMessage: error instanceof Error ? error.message.slice(0, 300) : undefined,
+          }),
     });
 
     await prisma.$transaction([

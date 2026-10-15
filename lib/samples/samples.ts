@@ -32,7 +32,24 @@ export type AudiobookSample = {
 };
 
 /** Real books produced end to end with the free tool or Studio. Add entries as clips are recorded. */
-export const AUDIOBOOK_SAMPLES: readonly AudiobookSample[] = [];
+export const AUDIOBOOK_SAMPLES: readonly AudiobookSample[] = [
+  {
+    id: "pride-and-prejudice",
+    title: "Pride and Prejudice",
+    author: "Jane Austen",
+    format: "EPUB",
+    sourceName: "Standard Ebooks",
+    sourceUrl: "https://standardebooks.org/ebooks/jane-austen/pride-and-prejudice",
+    license: "Public domain, CC0 edition",
+    language: "en",
+    voice: "Ava, English (US), 1.0x",
+    audioSrc: "/samples/pride-and-prejudice.mp3",
+    clipLabel: "Chapter 1, from 0:30",
+    clipSeconds: 90,
+    stats: { words: 122_027, chapters: 61, generationMinutes: 38, finishedSeconds: 41_822, exportMegabytes: 256.6 },
+    note: "Removed the colophon and other back matter before generating.",
+  },
+];
 
 export function samplesForFormats(
   formats: readonly ToolFormat[],
@@ -58,7 +75,7 @@ export function sampleJsonLd(sample: AudiobookSample, siteUrl: string): Record<s
     "@context": "https://schema.org",
     "@type": "AudioObject",
     name: `${sample.title} — ${sample.clipLabel}`,
-    description: `Sample from an audiobook of ${sample.title} by ${sample.author}, made from a ${sample.format} with Audiobooker using the ${sample.voice} voice.`,
+    description: `Sample from an audiobook of ${sample.title} by ${sample.author}, made from an ${sample.format === "EPUB" ? "EPUB" : `${sample.format} file`} with Audiobooker. Voice: ${sample.voice}.`,
     contentUrl: `${siteUrl}${sample.audioSrc}`,
     encodingFormat: "audio/mpeg",
     duration: isoDuration(sample.clipSeconds),
