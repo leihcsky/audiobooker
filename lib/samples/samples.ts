@@ -49,7 +49,44 @@ export const AUDIOBOOK_SAMPLES: readonly AudiobookSample[] = [
     stats: { words: 122_027, chapters: 61, generationMinutes: 38, finishedSeconds: 41_822, exportMegabytes: 256.6 },
     note: "Removed the colophon and other back matter before generating.",
   },
+  {
+    id: "the-art-of-war",
+    title: "The Art of War",
+    author: "Sun Tzu",
+    format: "PDF",
+    sourceName: "Standard Ebooks",
+    sourceUrl: "https://standardebooks.org/ebooks/sun-tzu/the-art-of-war/lionel-giles",
+    license: "Public domain (Lionel Giles translation), CC0 edition",
+    language: "en",
+    voice: "Ava, English (US), 1.0x",
+    audioSrc: "/samples/the-art-of-war.mp3",
+    clipLabel: "Chapter I, Laying Plans, from 0:30",
+    clipSeconds: 90,
+    stats: { words: 10_445, chapters: 13, generationMinutes: 3.8, finishedSeconds: 3_681, exportMegabytes: 22.6 },
+    note: "Printed the web edition to PDF in a browser, then generated only the 13 chapters, leaving out the translator's introduction and the endnotes.",
+  },
+  {
+    id: "the-adventures-of-sherlock-holmes",
+    title: "The Adventures of Sherlock Holmes",
+    author: "Arthur Conan Doyle",
+    format: "TXT",
+    sourceName: "Project Gutenberg",
+    sourceUrl: "https://www.gutenberg.org/ebooks/1661",
+    license: "Public domain",
+    language: "en",
+    voice: "Andrew, English (US), 1.0x",
+    audioSrc: "/samples/the-adventures-of-sherlock-holmes.mp3",
+    clipLabel: "Chapter I, A Scandal in Bohemia, from 0:30",
+    clipSeconds: 90,
+    stats: { words: 104_318, chapters: 12, generationMinutes: 52.1, finishedSeconds: 33_156, exportMegabytes: 207.7 },
+  },
 ];
+
+const SOURCE_PHRASE: Record<ToolFormat, string> = {
+  EPUB: "an EPUB",
+  PDF: "a PDF file",
+  TXT: "a TXT file",
+};
 
 export function samplesForFormats(
   formats: readonly ToolFormat[],
@@ -75,7 +112,7 @@ export function sampleJsonLd(sample: AudiobookSample, siteUrl: string): Record<s
     "@context": "https://schema.org",
     "@type": "AudioObject",
     name: `${sample.title} — ${sample.clipLabel}`,
-    description: `Sample from an audiobook of ${sample.title} by ${sample.author}, made from an ${sample.format === "EPUB" ? "EPUB" : `${sample.format} file`} with Audiobooker. Voice: ${sample.voice}.`,
+    description: `Sample from an audiobook of ${sample.title} by ${sample.author}, made from ${SOURCE_PHRASE[sample.format]} with Audiobooker. Voice: ${sample.voice}.`,
     contentUrl: `${siteUrl}${sample.audioSrc}`,
     encodingFormat: "audio/mpeg",
     duration: isoDuration(sample.clipSeconds),
