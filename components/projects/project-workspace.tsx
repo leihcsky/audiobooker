@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { ArrowDownIcon, ArrowUpIcon, PencilIcon, TrashIcon } from "@/components/ui/icons";
 import { Label } from "@/components/ui/label";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
@@ -16,6 +17,7 @@ import { useVoiceOptions, VoiceSelect } from "@/components/tts/voice-select";
 import { useVoicePreview, VoicePreviewButton, VoicePreviewPlayer } from "@/components/tts/voice-preview";
 import { formatAudioDuration } from "@/lib/audio/format-duration";
 import { estimatePremiumSeconds } from "@/lib/billing/premium-usage";
+import { planProjectNarration } from "@/lib/chapters/project-narration";
 import type { ChapterSummary, ProjectGenerationSummary } from "@/lib/projects/project.detail";
 import type { ProjectProgress } from "@/lib/projects/project.progress";
 import { formatSpokenLength } from "@/lib/tts/narration-length";
@@ -65,15 +67,6 @@ function sameIds(a: string[], b: string[]): boolean {
   return b.every((id) => set.has(id));
 }
 
-function needsNarration(chapter: ChapterSummary): boolean {
-  return (
-    chapter.included &&
-    chapter.status !== "GENERATING" &&
-    chapter.characterCount > 0 &&
-    (!chapter.hasAudio || chapter.audioOutdated)
-  );
-}
-
 export function ProjectWorkspace({
   projectId,
   book,
@@ -91,6 +84,7 @@ export function ProjectWorkspace({
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmRematch, setConfirmRematch] = useState(false);
   const [includedDraft, setIncludedDraft] = useState<string[] | null>(null);
   const [savingSelection, setSavingSelection] = useState(false);
   const selectionQueue = useRef<Promise<void>>(Promise.resolve());
@@ -116,7 +110,8 @@ export function ProjectWorkspace({
   const narrating = generationActive || chapterGenerating;
   const busy = pending !== null || narrating;
   const preview = useVoicePreview(voiceId, speed);
-  const toNarrate = displayChapters.filter(needsNarration);
+  const narration = planProjectNarration(displayChapters, voiceId, speed);
+  const toNarrate = narration.targets;
   const currentChapter = generation?.currentChapterId
     ? chapters.find((chapter) => chapter.id === generation.currentChapterId) ?? null
     : null;
@@ -174,11 +169,29 @@ export function ProjectWorkspace({
     }
   }
 
-  function onGenerate() {
-    void send("generate", `/api/projects/${projectId}/generate`, {
+  async function startGeneration() {
+    const body: { voiceId: string; speed: number; chapterIds?: string[] } = { voiceId, speed };
+    if (narration.overwritesAudio) {
+      body.chapterIds = toNarrate.map((chapter) => chapter.id);
+    }
+    const ok = await send("generate", `/api/projects/${projectId}/generate`, {
       method: "POST",
-      body: JSON.stringify({ voiceId, speed }),
+      body: JSON.stringify(body),
     });
+    if (ok) {
+      setConfirmRematch(false);
+    }
+  }
+
+  function onGenerate() {
+    if (toNarrate.length === 0) {
+      return;
+    }
+    if (narration.overwritesAudio) {
+      setConfirmRematch(true);
+      return;
+    }
+    void startGeneration();
   }
 
   function onStop() {
@@ -318,9 +331,11 @@ export function ProjectWorkspace({
             >
               {pending === "generate" || generationActive
                 ? "Generating..."
-                : toNarrate.length > 0
-                  ? `Generate ${toNarrate.length} chapter${toNarrate.length === 1 ? "" : "s"}`
-                  : "Generate audiobook"}
+                : toNarrate.length === 0
+                  ? "Generate audiobook"
+                  : narration.overwritesAudio
+                    ? `Regenerate ${toNarrate.length} chapter${toNarrate.length === 1 ? "" : "s"}`
+                    : `Generate ${toNarrate.length} chapter${toNarrate.length === 1 ? "" : "s"}`}
             </Button>
             {generationActive ? (
               <Button variant="outline" onClick={onStop} disabled={pending !== null}>
@@ -334,10 +349,47 @@ export function ProjectWorkspace({
               <PremiumEstimate
                 neededSeconds={toNarrate.length > 0 ? premiumNeeded : 0}
                 availableSeconds={premiumAvailableSeconds}
-                action={toNarrate.some((chapter) => chapter.hasAudio) ? "regenerate" : "generate"}
+                action={narration.overwritesAudio ? "regenerate" : "generate"}
               />
             ) : null}
           </div>
+
+          <Dialog
+            open={confirmRematch}
+            title="Replace existing audio?"
+            description={
+              narration.rematchCount === toNarrate.length
+                ? `${toNarrate.length} selected chapter${toNarrate.length === 1 ? "" : "s"} already have audio. Regenerating will overwrite ${toNarrate.length === 1 ? "it" : "them"} with the current voice and speed.`
+                : `This will narrate ${toNarrate.length} selected chapter${toNarrate.length === 1 ? "" : "s"} with the current voice and speed. ${narration.rematchCount} already have audio and will be overwritten.`
+            }
+            onClose={() => {
+              if (pending === null) {
+                setConfirmRematch(false);
+              }
+            }}
+          >
+            {premiumSelected ? (
+              <div className="mb-4">
+                <PremiumEstimate
+                  neededSeconds={premiumNeeded}
+                  availableSeconds={premiumAvailableSeconds}
+                  action="regenerate"
+                />
+              </div>
+            ) : null}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmRematch(false)}
+                disabled={pending !== null}
+              >
+                Cancel
+              </Button>
+              <Button onClick={() => void startGeneration()} disabled={pending !== null || premiumShort}>
+                {pending === "generate" ? "Starting..." : "Regenerate"}
+              </Button>
+            </div>
+          </Dialog>
 
           <VoicePreviewPlayer audioUrl={preview.audioUrl} />
 
