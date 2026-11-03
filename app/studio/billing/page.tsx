@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
 import { getBillingOverview, type BillingOverview, type BillingPack } from "@/lib/billing/billing-overview";
 import { PLANS } from "@/lib/billing/plans";
+import { payPerBookFacts } from "@/lib/billing/pricing-facts";
 import { remainingMinutes } from "@/lib/billing/premium-usage";
 import { PRICE_TAX_NOTE } from "@/lib/legal";
 import { cn, formatDate } from "@/lib/utils";
@@ -30,7 +31,9 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
     <main className="space-y-8">
       <div>
         <h1 className="font-serif text-4xl tracking-tight">Billing</h1>
-        <p className="mt-2 text-muted-foreground">Your plan, premium minutes, and payments.</p>
+        <p className="mt-2 text-muted-foreground">
+          Your plan, premium minutes, pay-per-book options, and payments.
+        </p>
       </div>
 
       {overview.returnedOrder ? <CheckoutReturn order={overview.returnedOrder} /> : null}
@@ -45,11 +48,19 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
         <MinutesCard overview={overview} />
       </div>
 
+      <PayPerBookCard />
+
       <section id="minute-packs" className="scroll-mt-8">
         <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Buy premium minutes
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">One-time purchase. Purchased minutes never expire.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          One-time purchase. Purchased minutes never expire. For a single project, you can also{" "}
+          <a href="#pay-per-book" className="underline">
+            pay per book
+          </a>{" "}
+          in Studio.
+        </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {overview.packs.map((pack) => (
             <PackCard key={pack.id} pack={pack} creator={overview.usage.plan.id === "creator"} />
@@ -172,6 +183,43 @@ function Row({ label, value, hint }: { label: string; value: string; hint?: stri
         {hint ? <span className="ml-2 text-xs text-muted-foreground">{hint}</span> : null}
       </dd>
     </div>
+  );
+}
+
+function PayPerBookCard() {
+  const facts = payPerBookFacts();
+  return (
+    <section id="pay-per-book" className="scroll-mt-8">
+      <Card>
+        <CardContent className="space-y-4 p-6">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              {facts.title}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">{facts.summary}</p>
+          </div>
+          <ul className="space-y-1.5 text-sm">
+            {facts.points.map((point) => (
+              <li key={point}>✓ {point}</li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-3 pt-1">
+            <Link
+              href="/studio/projects"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Open a project
+            </Link>
+            <Link
+              href="/pricing#pay-per-book"
+              className="inline-flex h-10 items-center justify-center rounded-md border border-border px-4 text-sm font-medium hover:bg-muted"
+            >
+              See pricing details
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 

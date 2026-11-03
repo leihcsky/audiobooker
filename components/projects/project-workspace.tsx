@@ -9,13 +9,16 @@ import { Dialog } from "@/components/ui/dialog";
 import { ArrowDownIcon, ArrowUpIcon, PencilIcon, TrashIcon } from "@/components/ui/icons";
 import { Label } from "@/components/ui/label";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
+import { PayPerBookPanel } from "@/components/billing/pay-per-book-panel";
 import { PremiumEstimate } from "@/components/billing/premium-estimate";
 import { BookSummary, SelectionSummary } from "@/components/projects/book-summary";
 import { useProjectCover } from "@/components/projects/use-project-cover";
+import { BookPlayer } from "@/components/seo-tools/book-player";
 import { bookStats } from "@/lib/projects/book-stats";
 import { useVoiceOptions, VoiceSelect } from "@/components/tts/voice-select";
 import { useVoicePreview, VoicePreviewButton, VoicePreviewPlayer } from "@/components/tts/voice-preview";
 import { formatAudioDuration } from "@/lib/audio/format-duration";
+import { chaptersNeedingPayPerBookRegen } from "@/lib/billing/pay-per-book-shared";
 import { estimatePremiumSeconds } from "@/lib/billing/premium-usage";
 import { planProjectNarration } from "@/lib/chapters/project-narration";
 import type { ChapterSummary, ProjectGenerationSummary } from "@/lib/projects/project.detail";
@@ -33,6 +36,7 @@ type ProjectWorkspaceProps = {
   progress: ProjectProgress;
   generation: ProjectGenerationSummary | null;
   premiumAvailableSeconds: number;
+  planId: "free" | "creator";
 };
 
 type ChapterState = "ready" | "outdated" | "generating" | "queued" | "failed" | "pending";
@@ -74,6 +78,7 @@ export function ProjectWorkspace({
   progress,
   generation,
   premiumAvailableSeconds,
+  planId,
 }: ProjectWorkspaceProps) {
   const router = useRouter();
   const voices = useVoiceOptions();
@@ -85,6 +90,9 @@ export function ProjectWorkspace({
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmRematch, setConfirmRematch] = useState(false);
+  const [premiumPayMode, setPremiumPayMode] = useState<"minutes" | "pay_per_book">(
+    planId === "creator" ? "minutes" : "pay_per_book",
+  );
   const [includedDraft, setIncludedDraft] = useState<string[] | null>(null);
   const [savingSelection, setSavingSelection] = useState(false);
   const selectionQueue = useRef<Promise<void>>(Promise.resolve());
@@ -116,6 +124,9 @@ export function ProjectWorkspace({
     ? chapters.find((chapter) => chapter.id === generation.currentChapterId) ?? null
     : null;
   const stats = bookStats(displayChapters);
+  const listenChapters = displayChapters
+    .filter((chapter) => chapter.included && chapter.hasAudio)
+    .map((chapter) => ({ id: chapter.id, title: chapter.title }));
   const coverUrl = useProjectCover(projectId, book.hasCover, book.updatedAt);
   const selectedVoice = voices.find((voice) => voice.id === voiceId);
   const premiumSelected = selectedVoice?.tier === "PREMIUM";
@@ -130,7 +141,21 @@ export function ProjectWorkspace({
         0,
       )
     : 0;
-  const premiumShort = premiumSelected && premiumNeeded > premiumAvailableSeconds;
+  const usePayPerBook = premiumSelected && (planId !== "creator" || premiumPayMode === "pay_per_book");
+  const useMinutes = premiumSelected && planId === "creator" && premiumPayMode === "minutes";
+  const premiumShort = useMinutes && premiumNeeded > premiumAvailableSeconds;
+  const ppbChapterIds =
+    toNarrate.length > 0
+      ? toNarrate.map((chapter) => chapter.id)
+      : chaptersNeedingPayPerBookRegen({ chapters: displayChapters, voiceId, speed });
+  const showPayPerBook = usePayPerBook && ppbChapterIds.length > 0;
+  const generateDisabled =
+    !voiceId ||
+    busy ||
+    savingSelection ||
+    toNarrate.length === 0 ||
+    usePayPerBook ||
+    premiumShort;
 
   useEffect(() => {
     if (!generationActive && !chapterGenerating) {
@@ -323,12 +348,59 @@ export function ProjectWorkspace({
             <SpeechSpeedControl id="project-speed" value={speed} onChange={setSpeed} disabled={busy} />
           </div>
 
+          {!premiumSelected && toNarrate.length > 0 ? (
+            <p className="rounded-lg border border-dashed border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+              Want a Premium voice without a subscription? Choose one marked{" "}
+              <span className="font-medium text-foreground">Premium</span> above to see a one-time
+              price for these chapters.
+            </p>
+          ) : null}
+
+          {premiumSelected && planId === "creator" ? (
+            <fieldset className="space-y-2 text-sm">
+              <legend className="font-medium">Premium payment</legend>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="premium-pay-mode"
+                  checked={premiumPayMode === "minutes"}
+                  onChange={() => setPremiumPayMode("minutes")}
+                  disabled={busy}
+                />
+                Use Premium Minutes ({Math.floor(premiumAvailableSeconds / 60)} min left)
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="premium-pay-mode"
+                  checked={premiumPayMode === "pay_per_book"}
+                  onChange={() => setPremiumPayMode("pay_per_book")}
+                  disabled={busy}
+                />
+                Pay once for these chapters (Pay-per-Book)
+              </label>
+            </fieldset>
+          ) : null}
+
+          {showPayPerBook ? (
+            <PayPerBookPanel
+              projectId={projectId}
+              chapterIds={ppbChapterIds}
+              voiceId={voiceId}
+              speed={speed}
+              selectedChapterCount={stats.selected.chapters}
+              regenerateChapterIds={
+                toNarrate.every((chapter) => chapter.hasAudio && !chapter.audioOutdated)
+                  ? ppbChapterIds
+                  : undefined
+              }
+              disabled={busy || savingSelection}
+            />
+          ) : null}
+
           <div className="flex flex-wrap items-center gap-3">
             <VoicePreviewButton preview={preview} disabled={!voiceId || pending !== null} />
-            <Button
-              onClick={onGenerate}
-              disabled={!voiceId || busy || savingSelection || premiumShort || toNarrate.length === 0}
-            >
+            <Button onClick={onGenerate} disabled={generateDisabled}>
               {pending === "generate" || generationActive
                 ? "Generating..."
                 : toNarrate.length === 0
@@ -345,7 +417,7 @@ export function ProjectWorkspace({
             {!generationActive && toNarrate.length === 0 && progress.chapterCount > 0 ? (
               <span className="text-sm text-muted-foreground">Every selected chapter has up-to-date audio.</span>
             ) : null}
-            {!generationActive && premiumSelected ? (
+            {!generationActive && useMinutes ? (
               <PremiumEstimate
                 neededSeconds={toNarrate.length > 0 ? premiumNeeded : 0}
                 availableSeconds={premiumAvailableSeconds}
@@ -404,6 +476,20 @@ export function ProjectWorkspace({
           </p>
         </CardContent>
       </Card>
+
+      {listenChapters.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Listen</CardTitle>
+            <CardDescription>
+              Play finished chapters in order. When one ends, the next starts automatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BookPlayer chapters={listenChapters} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

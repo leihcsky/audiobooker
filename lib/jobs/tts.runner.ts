@@ -200,7 +200,7 @@ export async function runTtsJob(jobId: string): Promise<void> {
           errorMessage: null,
         },
       });
-      if (job.tier === "PREMIUM") {
+      if (job.tier === "PREMIUM" && job.billingSource !== "PAY_PER_BOOK") {
         await captureReservation(tx, {
           jobId: job.id,
           billableSeconds: billablePremiumSeconds({
@@ -267,7 +267,7 @@ export async function runTtsJob(jobId: string): Promise<void> {
           status: keepReady ? "READY" : "FAILED",
         },
       });
-      if (job.tier === "PREMIUM") {
+      if (job.tier === "PREMIUM" && job.billingSource !== "PAY_PER_BOOK") {
         await releaseReservationForJob(tx, job.id, "job_failed");
       }
     });

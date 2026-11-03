@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppError } from "@/lib/api/errors";
 import { requireSession } from "@/lib/auth/session";
 import { getPremiumBalance } from "@/lib/billing/credits.service";
+import { getUserPlanState } from "@/lib/billing/entitlements";
 import { getProjectDetailForUser } from "@/lib/projects/project.detail";
 import { projectIdSchema } from "@/lib/validation/project";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,11 +44,13 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     notFound();
   }
 
-  const [detail, premium] = await Promise.all([
+  const [detail, premium, planState] = await Promise.all([
     loadDetail(parsedId.data, user.id),
     getPremiumBalance(user.id),
+    getUserPlanState(user.id),
   ]);
   const { project } = detail;
+  const planId = planState.plan.id === "creator" ? "creator" : "free";
   const narrating =
     detail.generation?.job.status === "QUEUED" ||
     detail.generation?.job.status === "PROCESSING" ||
@@ -112,6 +115,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
           progress={detail.progress}
           generation={detail.generation}
           premiumAvailableSeconds={premium.balance.availableSeconds}
+          planId={planId}
         />
       ) : null}
 

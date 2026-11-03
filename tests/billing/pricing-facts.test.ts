@@ -44,7 +44,7 @@ describe("book cost comparison", () => {
   it("prices a book sized to the Book pack against human narration", () => {
     const { hours, rows } = bookCostComparison();
     expect(hours).toBe(10);
-    expect(rows.map((row) => row.cost)).toEqual(["$2,000–$4,000", "$93.99", "$99"]);
+    expect(rows.map((row) => row.cost)).toEqual(["$2,000–$4,000", "$93.99", "$99", "from $2.99"]);
   });
 });
 
@@ -64,6 +64,12 @@ describe("pricing facts", () => {
     expect(copy).toContain("deleted after 3 days");
     expect(copy).toContain("EPUB up to 50 MB");
     expect(copy).toContain("refunded within 7 days");
+  });
+
+  it("explains pay per book", () => {
+    expect(copy).toMatch(/pay for just one book/i);
+    expect(copy).toContain("Pay per book");
+    expect(copy).toMatch(/rounded up to the next \d+ minutes/i);
   });
 
   it("lists every plan and pack price in structured data", () => {

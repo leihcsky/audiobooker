@@ -5,6 +5,11 @@ import {
   reverseMonthlyGrant,
   reversePurchasedSeconds,
 } from "@/lib/billing/credits.service";
+import {
+  markPayPerBookPaid,
+  markPayPerBookRefunded,
+  startPayPerBookGeneration,
+} from "@/lib/billing/pay-per-book.service";
 import { BillingSignatureError, type BillingWebhookEvent } from "@/lib/billing/provider";
 import { getBillingProvider } from "@/lib/billing/providers";
 import { prisma } from "@/lib/db/prisma";
@@ -80,6 +85,34 @@ async function applyPackPaid(tx: Db, order: BillingOrder, event: BillingWebhookE
     seconds: order.premiumSeconds,
     metadata: { itemId: order.itemId, providerOrderId: event.orderId },
   });
+  return PROCESSED;
+}
+
+async function applyPayPerBookPaid(
+  tx: Db,
+  order: BillingOrder,
+  event: BillingWebhookEvent,
+): Promise<Outcome> {
+  if (order.kind !== "PAY_PER_BOOK") {
+    return ignored("not_pay_per_book");
+  }
+  if (order.status !== "PENDING") {
+    return ignored(`order_${order.status.toLowerCase()}`);
+  }
+  if (event.currency && event.currency.toUpperCase() !== "USD") {
+    return ignored("currency_mismatch");
+  }
+  if (event.amountUsd != null) {
+    const expected = Number(order.amountUsd);
+    if (Math.abs(event.amountUsd - expected) > 0.009) {
+      return ignored("amount_mismatch");
+    }
+  }
+  await markPaid(tx, order, event.orderId);
+  const ppb = await markPayPerBookPaid(tx, order.id);
+  if (!ppb) {
+    return ignored("missing_pay_per_book_order");
+  }
   return PROCESSED;
 }
 
@@ -170,6 +203,11 @@ async function applyRefund(
     await tx.billingOrder.update({ where: { id: order.id }, data: { status: "REFUNDED" } });
     return PROCESSED;
   }
+  if (order.kind === "PAY_PER_BOOK") {
+    await markPayPerBookRefunded(tx, order.id);
+    await tx.billingOrder.update({ where: { id: order.id }, data: { status: "REFUNDED" } });
+    return PROCESSED;
+  }
   const subscription = await findSubscription(tx, provider, order.providerOrderId ?? event.orderId);
   if (!subscription) {
     return ignored("unknown_subscription");
@@ -211,7 +249,9 @@ async function applyEvent(tx: Db, provider: string, event: BillingWebhookEvent):
   }
   switch (event.kind) {
     case "one_time.paid":
-      return applyPackPaid(tx, order, event);
+      return order.kind === "PAY_PER_BOOK"
+        ? applyPayPerBookPaid(tx, order, event)
+        : applyPackPaid(tx, order, event);
     case "subscription.activated":
     case "subscription.renewed":
     case "subscription.recovered":
@@ -290,5 +330,26 @@ export async function handleBillingWebhook(
     outcome: result.outcome,
     note: result.note,
   });
+
+  if (
+    result.outcome === "PROCESSED" &&
+    event.kind === "one_time.paid" &&
+    event.reference &&
+    UUID.test(event.reference)
+  ) {
+    const paid = await prisma.billingOrder.findUnique({
+      where: { id: event.reference },
+      select: { kind: true, status: true },
+    });
+    if (paid?.kind === "PAY_PER_BOOK" && paid.status === "PAID") {
+      void startPayPerBookGeneration(event.reference).catch((error) => {
+        console.error("pay_per_book_fulfil_failed", {
+          billingOrderId: event.reference,
+          message: error instanceof Error ? error.message.slice(0, 400) : "unknown",
+        });
+      });
+    }
+  }
+
   return { duplicate: false };
 }

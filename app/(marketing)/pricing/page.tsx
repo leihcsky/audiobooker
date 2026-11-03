@@ -7,7 +7,12 @@ import { MINUTE_PACKS, type MinutePack } from "@/lib/billing/credit-packs";
 import { getUserPlan } from "@/lib/billing/entitlements";
 import { PLANS, type PlanDefinition, type PlanId } from "@/lib/billing/plans";
 import { remainingMinutes } from "@/lib/billing/premium-usage";
-import { bookCostComparison, pricingFaq, pricingJsonLd } from "@/lib/billing/pricing-facts";
+import {
+  bookCostComparison,
+  payPerBookFacts,
+  pricingFaq,
+  pricingJsonLd,
+} from "@/lib/billing/pricing-facts";
 import { PRICE_TAX_NOTE, REFUND_WINDOW_DAYS } from "@/lib/legal";
 import { serializeJsonLd } from "@/lib/tools/seo-page";
 import { getSiteUrl } from "@/lib/tools/site";
@@ -50,7 +55,7 @@ function features(plan: PlanDefinition): string[] {
   list.push(
     `${plan.maxProjects} saved projects`,
     `Standard voices, ${planStandardListening(plan)} of narration a month (fair use)`,
-    "Premium voices, paid with premium minutes",
+    "Premium voices via minutes or pay per book",
     "Chapter editing and regeneration",
     "MP3 and M4B export",
   );
@@ -82,6 +87,7 @@ export default async function PricingPage() {
           <PlanCard key={plan.id} plan={plan} currentPlanId={currentPlanId} />
         ))}
       </div>
+      <PayPerBookSection signedIn={currentPlanId !== null} />
       <MinutePacks creator={currentPlanId === "creator"} signedIn={currentPlanId !== null} />
       <BookCost />
       <p className="mt-10 text-center text-sm text-muted-foreground">{PRICE_TAX_NOTE}</p>
@@ -196,13 +202,46 @@ function PlanAction({
   return <CheckoutButton item="creator">Upgrade to {plan.name}</CheckoutButton>;
 }
 
+function PayPerBookSection({ signedIn }: { signedIn: boolean }) {
+  const facts = payPerBookFacts();
+  return (
+    <section id="pay-per-book" className="mt-16 scroll-mt-8">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm md:p-8">
+        <h2 className="font-serif text-3xl tracking-tight">{facts.title}</h2>
+        <p className="mt-3 max-w-2xl text-muted-foreground">{facts.summary}</p>
+        <ul className="mt-6 space-y-2 text-sm">
+          {facts.points.map((point) => (
+            <li key={point}>✓ {point}</li>
+          ))}
+        </ul>
+        <div className="mt-8">
+          {signedIn ? (
+            <Link href="/studio/projects" className={`${BUTTON_CLASS} max-w-xs bg-primary text-primary-foreground hover:bg-primary/90`}>
+              Open a project to get a quote
+            </Link>
+          ) : (
+            <Link href="/signup" className={`${BUTTON_CLASS} max-w-xs bg-primary text-primary-foreground hover:bg-primary/90`}>
+              Create a free account
+            </Link>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function MinutePacks({ creator, signedIn }: { creator: boolean; signedIn: boolean }) {
   return (
     <section id="minute-packs" className="mt-16 scroll-mt-8">
       <div className="text-center">
         <h2 className="font-serif text-3xl tracking-tight">Premium minute packs</h2>
         <p className="mt-2 text-muted-foreground">
-          One-time purchase for any account. Purchased minutes never expire.
+          Buy a balance of premium minutes for any account. Purchased minutes never expire. Prefer a
+          single book? See{" "}
+          <a href="#pay-per-book" className="underline">
+            Pay per book
+          </a>{" "}
+          above.
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Unused packs can be refunded within {REFUND_WINDOW_DAYS} days.{" "}

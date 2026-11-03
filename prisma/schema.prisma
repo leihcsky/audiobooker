@@ -117,6 +117,31 @@ enum CreditReservationStatus {
 enum BillingOrderKind {
   SUBSCRIPTION
   MINUTE_PACK
+  PAY_PER_BOOK
+}
+
+enum JobBillingSource {
+  MINUTES
+  PAY_PER_BOOK
+}
+
+enum PayPerBookOrderStatus {
+  PENDING_PAYMENT
+  PAID
+  GENERATING
+  COMPLETED
+  PARTIALLY_COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PayPerBookChapterStatus {
+  PENDING
+  QUEUED
+  GENERATING
+  COMPLETED
+  FAILED
 }
 
 enum BillingOrderStatus {
@@ -163,6 +188,8 @@ model User {
   creditEntries      CreditLedger[]
   creditReservations CreditReservation[]
   billingOrders      BillingOrder[]
+  payPerBookQuotes   PayPerBookQuote[]
+  payPerBookOrders   PayPerBookOrder[]
 
   @@index([createdAt])
 }
@@ -251,6 +278,9 @@ model Project {
   audioFiles        AudioFile[]
   usageRecords      UsageRecord[]
   exports           Export[]
+  billingOrders     BillingOrder[]
+  payPerBookQuotes  PayPerBookQuote[]
+  payPerBookOrders  PayPerBookOrder[]
 
   @@index([userId, updatedAt])
   @@index([userId, status])
@@ -296,8 +326,9 @@ model Chapter {
 
   project          Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   currentAudioFile AudioFile?      @relation("ChapterCurrentAudio", fields: [currentAudioFileId], references: [id], onDelete: SetNull)
-  audioFiles       AudioFile[]     @relation("ChapterAudioFiles")
-  generationJobs   GenerationJob[]
+  audioFiles             AudioFile[]              @relation("ChapterAudioFiles")
+  generationJobs         GenerationJob[]
+  payPerBookOrderChapters PayPerBookOrderChapter[]
 
   @@unique([projectId, orderIndex])
   @@index([projectId, orderIndex])
@@ -320,44 +351,48 @@ model PronunciationEntry {
 }
 
 model GenerationJob {
-  id              String    @id @default(uuid()) @db.Char(36)
-  projectId       String    @db.Char(36)
-  chapterId       String?   @db.Char(36)
-  parentJobId     String?   @db.Char(36)
-  type            JobType
-  status          JobStatus @default(QUEUED)
-  provider        String?   @db.VarChar(100)
-  providerModel   String?   @db.VarChar(100)
-  tier            TtsTier?
-  voiceId         String?   @db.VarChar(255)
-  inputCharacters Int?
-  totalChunks     Int?
-  completedChunks Int       @default(0)
-  cachedChunks    Int       @default(0)
-  retryParagraphs Json?
-  estimatedCost   Decimal?  @db.Decimal(12, 4)
-  actualCost      Decimal?  @db.Decimal(12, 4)
-  currency        String?   @db.VarChar(3)
-  errorCode       String?   @db.VarChar(100)
-  errorMessage    String?   @db.Text
-  attempts        Int       @default(0)
-  startedAt       DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                String            @id @default(uuid()) @db.Char(36)
+  projectId         String            @db.Char(36)
+  chapterId         String?           @db.Char(36)
+  parentJobId       String?           @db.Char(36)
+  type              JobType
+  status            JobStatus         @default(QUEUED)
+  provider          String?           @db.VarChar(100)
+  providerModel     String?           @db.VarChar(100)
+  tier              TtsTier?
+  voiceId           String?           @db.VarChar(255)
+  billingSource     JobBillingSource?
+  payPerBookOrderId String?           @db.Char(36)
+  inputCharacters   Int?
+  totalChunks       Int?
+  completedChunks   Int               @default(0)
+  cachedChunks      Int               @default(0)
+  retryParagraphs   Json?
+  estimatedCost     Decimal?          @db.Decimal(12, 4)
+  actualCost        Decimal?          @db.Decimal(12, 4)
+  currency          String?           @db.VarChar(3)
+  errorCode         String?           @db.VarChar(100)
+  errorMessage      String?           @db.Text
+  attempts          Int               @default(0)
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
-  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  chapter    Chapter?        @relation(fields: [chapterId], references: [id], onDelete: SetNull)
-  parentJob  GenerationJob?  @relation("JobChildren", fields: [parentJobId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  childJobs  GenerationJob[] @relation("JobChildren")
-  audioFiles AudioFile[]
-  exports    Export[]
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chapter         Chapter?         @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  parentJob       GenerationJob?   @relation("JobChildren", fields: [parentJobId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  childJobs       GenerationJob[]  @relation("JobChildren")
+  audioFiles      AudioFile[]
+  exports         Export[]
   creditReservation CreditReservation?
+  payPerBookOrder PayPerBookOrder? @relation(fields: [payPerBookOrderId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
   @@index([chapterId, createdAt])
   @@index([status, createdAt])
   @@index([parentJobId])
+  @@index([payPerBookOrderId])
 }
 
 model AudioFile {
@@ -540,6 +575,7 @@ model BillingOrder {
   productId         String             @db.VarChar(255)
   amountUsd         Decimal            @db.Decimal(10, 2)
   premiumSeconds    Int                @default(0)
+  projectId         String?            @db.Char(36)
   checkoutSessionId String?            @db.VarChar(255)
   providerOrderId   String?            @db.VarChar(255)
   status            BillingOrderStatus @default(PENDING)
@@ -547,10 +583,97 @@ model BillingOrder {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project        Project?         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  payPerBookOrder PayPerBookOrder?
 
   @@unique([provider, providerOrderId])
   @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model PayPerBookQuote {
+  id                 String   @id @default(uuid()) @db.Char(36)
+  userId             String   @db.Char(36)
+  projectId          String   @db.Char(36)
+  selectedChapterIds Json
+  selectedWordCount  Int
+  estimatedMinutes   Decimal  @db.Decimal(12, 4)
+  billableMinutes    Int
+  pricePerMinute     Decimal  @db.Decimal(10, 4)
+  totalAmount        Decimal  @db.Decimal(10, 2)
+  currency           String   @default("USD") @db.VarChar(3)
+  provider           String   @db.VarChar(100)
+  voiceId            String   @db.VarChar(255)
+  voiceName          String   @db.VarChar(255)
+  speed              Decimal  @default(1.00) @db.Decimal(3, 2)
+  chapterHashes      Json
+  expiresAt          DateTime
+  createdAt          DateTime @default(now())
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  orders  PayPerBookOrder[]
+
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model PayPerBookOrder {
+  id                String                @id @default(uuid()) @db.Char(36)
+  billingOrderId    String                @unique @db.Char(36)
+  quoteId           String?               @db.Char(36)
+  userId            String                @db.Char(36)
+  projectId         String                @db.Char(36)
+  selectedWordCount Int
+  estimatedMinutes  Decimal               @db.Decimal(12, 4)
+  billableMinutes   Int
+  pricePerMinute    Decimal               @db.Decimal(10, 4)
+  totalAmount       Decimal               @db.Decimal(10, 2)
+  currency          String                @default("USD") @db.VarChar(3)
+  provider          String                @db.VarChar(100)
+  voiceId           String                @db.VarChar(255)
+  voiceName         String                @db.VarChar(255)
+  speed             Decimal               @default(1.00) @db.Decimal(3, 2)
+  status            PayPerBookOrderStatus @default(PENDING_PAYMENT)
+  generationJobId   String?               @db.Char(36)
+  paidAt            DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  billingOrder BillingOrder             @relation(fields: [billingOrderId], references: [id], onDelete: Cascade)
+  quote        PayPerBookQuote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project      Project                  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  chapters     PayPerBookOrderChapter[]
+  generationJobs GenerationJob[]
+
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([status, createdAt])
+}
+
+model PayPerBookOrderChapter {
+  id              String                   @id @default(uuid()) @db.Char(36)
+  orderId         String                   @db.Char(36)
+  chapterId       String?                  @db.Char(36)
+  title           String                   @db.VarChar(500)
+  wordCount       Int
+  characterCount  Int
+  textHash        String                   @db.Char(64)
+  sourceText      String                   @db.LongText
+  voiceId         String                   @db.VarChar(255)
+  status          PayPerBookChapterStatus  @default(PENDING)
+  generationJobId String?                  @db.Char(36)
+  audioFileId     String?                  @db.Char(36)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  order   PayPerBookOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  chapter Chapter?        @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+
+  @@unique([orderId, chapterId])
+  @@index([orderId, status])
 }
 
 model BillingEvent {

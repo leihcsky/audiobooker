@@ -1,3 +1,4 @@
+import { syncPayPerBookOrderFromJob } from "@/lib/billing/pay-per-book.service";
 import { prisma } from "@/lib/db/prisma";
 import { claimProjectGenerationJob } from "@/lib/jobs/tts-claim";
 import { runTtsJob } from "@/lib/jobs/tts.runner";
@@ -62,6 +63,7 @@ export async function runProjectGeneration(parentId: string): Promise<void> {
           where: { id: parentId, status: "PROCESSING" },
           data: { status: "COMPLETED", completedAt: new Date(), errorCode: null, errorMessage: null },
         });
+        await syncPayPerBookOrderFromJob(parentId).catch(() => undefined);
         return;
       }
 
@@ -88,6 +90,7 @@ export async function runProjectGeneration(parentId: string): Promise<void> {
           where: { id: parentId },
           data: { completedChunks: { increment: 1 } },
         });
+        await syncPayPerBookOrderFromJob(parentId).catch(() => undefined);
         continue;
       }
       if (finished?.status === "FAILED") {
@@ -96,6 +99,7 @@ export async function runProjectGeneration(parentId: string): Promise<void> {
           finished.errorCode ?? "TTS_GENERATION_FAILED",
           finished.errorMessage ?? NARRATION_GENERIC_FAILURE,
         );
+        await syncPayPerBookOrderFromJob(parentId).catch(() => undefined);
         return;
       }
       // The chapter job is still owned by another runner; a later status poll resumes.

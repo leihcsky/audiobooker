@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  TaxCategory,
   verifyWebhook,
   WaffoPancake,
   type WebhookEvent,
@@ -33,6 +34,13 @@ const PRODUCT_ENV: Record<BillingItemId, { regular: string; creator: string | nu
   short: { regular: "WAFFO_PRODUCT_SHORT", creator: "WAFFO_PRODUCT_SHORT_CREATOR" },
   book: { regular: "WAFFO_PRODUCT_BOOK", creator: "WAFFO_PRODUCT_BOOK_CREATOR" },
   series: { regular: "WAFFO_PRODUCT_SERIES", creator: "WAFFO_PRODUCT_SERIES_CREATOR" },
+  pay_per_book: { regular: "WAFFO_PRODUCT_PAY_PER_BOOK", creator: null },
+};
+
+const TAX_CATEGORY: Record<NonNullable<CheckoutRequest["priceSnapshot"]>["taxCategory"], TaxCategory> = {
+  digital_goods: TaxCategory.DigitalGoods,
+  saas: TaxCategory.SaaS,
+  software: TaxCategory.Software,
 };
 
 function env(name: string): string | null {
@@ -103,6 +111,10 @@ function normalize(event: WebhookEvent<WebhookEventData>, payloadHash: string): 
   } else if (event.mode !== environment()) {
     ignoreReason = "other_environment";
   }
+  const amountUsd =
+    parseAmount(data.listPrice?.total) ??
+    parseAmount(data.chargedAmount) ??
+    parseAmount(data.originalPayment?.total);
   return {
     deliveryId: event.id,
     type: event.eventType,
@@ -113,6 +125,8 @@ function normalize(event: WebhookEvent<WebhookEventData>, payloadHash: string): 
     buyerIdentity: data.merchantProvidedBuyerIdentity ?? null,
     period: start && end && end > start ? { start, end } : null,
     refundFraction: event.eventType === "refund.succeeded" ? refundFraction(data) : null,
+    amountUsd,
+    currency: data.currency ?? null,
     payloadHash,
     ignoreReason,
   };
@@ -142,6 +156,14 @@ export const waffoBillingProvider: BillingProvider = {
       expiresInSeconds: input.expiresInSeconds,
       orderMerchantExternalId: input.reference,
       metadata: { billingOrderId: input.reference, userId: input.userId, item: input.item },
+      ...(input.priceSnapshot
+        ? {
+            priceSnapshot: {
+              amount: input.priceSnapshot.amountUsd.toFixed(2),
+              taxCategory: TAX_CATEGORY[input.priceSnapshot.taxCategory],
+            },
+          }
+        : {}),
     });
     return { sessionId: result.sessionId, checkoutUrl: result.checkoutUrl };
   },

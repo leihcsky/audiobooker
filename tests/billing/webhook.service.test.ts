@@ -113,6 +113,8 @@ function event(overrides: Partial<BillingWebhookEvent>): BillingWebhookEvent {
     buyerIdentity: userId,
     period: null,
     refundFraction: null,
+    amountUsd: null,
+    currency: null,
     payloadHash: "0".repeat(64),
     ignoreReason: null,
     ...overrides,

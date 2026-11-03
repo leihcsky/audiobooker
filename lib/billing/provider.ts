@@ -1,6 +1,11 @@
 import type { MinutePackId } from "@/lib/billing/credit-packs";
 
-export type BillingItemId = "creator" | MinutePackId;
+export type BillingItemId = "creator" | MinutePackId | "pay_per_book";
+
+export type CheckoutPriceSnapshot = {
+  amountUsd: number;
+  taxCategory: "digital_goods" | "saas" | "software";
+};
 
 export type CheckoutRequest = {
   item: BillingItemId;
@@ -11,6 +16,8 @@ export type CheckoutRequest = {
   reference: string;
   successUrl: string;
   expiresInSeconds: number;
+  /** Required for Pay-per-Book dynamic pricing; omitted for fixed products. */
+  priceSnapshot?: CheckoutPriceSnapshot;
 };
 
 export type CheckoutSession = {
@@ -44,6 +51,9 @@ export type BillingWebhookEvent = {
   period: { start: Date; end: Date } | null;
   /** Refunded share of the original payment, 0–1; null when unknown. */
   refundFraction: number | null;
+  /** Charged / list total when present on the webhook payload. */
+  amountUsd: number | null;
+  currency: string | null;
   payloadHash: string;
   /** Set when the event must not be applied (another store or environment). */
   ignoreReason: string | null;
