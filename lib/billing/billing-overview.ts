@@ -34,7 +34,7 @@ export type BillingActivity = {
 export type ReturnedOrder = {
   id: string;
   status: "PENDING" | "PAID" | "REFUNDED";
-  kind: "SUBSCRIPTION" | "MINUTE_PACK";
+  kind: "SUBSCRIPTION" | "MINUTE_PACK" | "PAY_PER_BOOK";
   itemId: string;
   amountUsd: number;
   premiumSeconds: number;

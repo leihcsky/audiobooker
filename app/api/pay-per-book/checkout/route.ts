@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return success(
       await createPayPerBookCheckout({
         userId: user.id,
-        email: user.email,
+        email: user.email ?? null,
         quoteId,
       }),
     );

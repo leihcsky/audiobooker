@@ -57,10 +57,13 @@ export function CheckoutReturn({ order }: { order: ReturnedOrder }) {
 
   let message: string;
   if (!pending) {
-    message =
-      order.kind === "SUBSCRIPTION"
-        ? "Payment received. Creator is active."
-        : `Payment received. ${remainingMinutes(order.premiumSeconds).toLocaleString("en-US")} premium minutes added.`;
+    if (order.kind === "SUBSCRIPTION") {
+      message = "Payment received. Creator is active.";
+    } else if (order.kind === "PAY_PER_BOOK") {
+      message = "Payment received. Narration for your selected chapters is starting.";
+    } else {
+      message = `Payment received. ${remainingMinutes(order.premiumSeconds).toLocaleString("en-US")} premium minutes added.`;
+    }
   } else if (gaveUp) {
     message = "Still confirming your payment. It will appear here once it clears; you can safely leave this page.";
   } else {
