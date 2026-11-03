@@ -16,16 +16,25 @@ export async function POST(request: Request, context: RouteContext) {
     projectIdSchema.parse(projectId);
     const body: unknown = await request.json().catch(() => null);
     const input = confirmSourceFileSchema.parse(body);
-    const sourceFile = await confirmSourceUpload({
-      actor,
-      projectId,
-      objectKey: input.objectKey,
-      originalFilename: input.originalFilename,
-      mimeType: input.mimeType,
-      sizeBytes: input.sizeBytes,
-    });
+    try {
+      const sourceFile = await confirmSourceUpload({
+        actor,
+        projectId,
+        objectKey: input.objectKey,
+        originalFilename: input.originalFilename,
+        mimeType: input.mimeType,
+        sizeBytes: input.sizeBytes,
+      });
 
-    await recordToolEvent({ actor, projectId, name: "tool_upload_completed" });
-    return success({ sourceFile }, 201);
+      await recordToolEvent({ actor, projectId, name: "tool_upload_completed" });
+      return success({ sourceFile }, 201);
+    } catch (error) {
+      console.info("source_confirm_failed", {
+        projectId,
+        code: error instanceof Error && "code" in error ? (error as { code: string }).code : undefined,
+        message: error instanceof Error ? error.message.slice(0, 200) : undefined,
+      });
+      throw error;
+    }
   });
 }

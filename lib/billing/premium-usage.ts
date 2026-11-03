@@ -50,3 +50,25 @@ export function remainingMinutes(seconds: number): number {
 export function estimatedMinutes(seconds: number): number {
   return Math.max(seconds > 0 ? 1 : 0, Math.ceil(seconds / 60));
 }
+
+/** Warn when balance drops to this many whole minutes or fewer. */
+export const PREMIUM_LOW_MINUTES = 20;
+/** Urge buying a pack when balance drops to this many whole minutes or fewer. */
+export const PREMIUM_CRITICAL_MINUTES = 5;
+
+export type PremiumNoticeLevel = "ok" | "low" | "critical" | "short";
+
+/** How urgently to surface remaining premium minutes before the user starts a job. */
+export function premiumNoticeLevel(neededSeconds: number, availableSeconds: number): PremiumNoticeLevel {
+  if (neededSeconds > availableSeconds) {
+    return "short";
+  }
+  const left = remainingMinutes(availableSeconds);
+  if (left <= PREMIUM_CRITICAL_MINUTES) {
+    return "critical";
+  }
+  if (left <= PREMIUM_LOW_MINUTES) {
+    return "low";
+  }
+  return "ok";
+}

@@ -330,8 +330,12 @@ export function ProjectWorkspace({
             {!generationActive && toNarrate.length === 0 && progress.chapterCount > 0 ? (
               <span className="text-sm text-muted-foreground">Every selected chapter has up-to-date audio.</span>
             ) : null}
-            {!generationActive && premiumSelected && toNarrate.length > 0 ? (
-              <PremiumEstimate neededSeconds={premiumNeeded} availableSeconds={premiumAvailableSeconds} />
+            {!generationActive && premiumSelected ? (
+              <PremiumEstimate
+                neededSeconds={toNarrate.length > 0 ? premiumNeeded : 0}
+                availableSeconds={premiumAvailableSeconds}
+                action={toNarrate.some((chapter) => chapter.hasAudio) ? "regenerate" : "generate"}
+              />
             ) : null}
           </div>
 

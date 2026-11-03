@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PremiumEstimate } from "@/components/billing/premium-estimate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { useVoiceOptions } from "@/components/tts/voice-select";
+import { estimatedMinutes, estimatePremiumSeconds, remainingMinutes } from "@/lib/billing/premium-usage";
 import type { ParagraphView, ParagraphViewItem } from "@/lib/chapters/paragraph.service";
 import { userFacingTtsError } from "@/lib/tts/tts-error-copy";
 import { cn } from "@/lib/utils";
@@ -17,6 +20,8 @@ type ChapterParagraphsProps = {
   view: ParagraphView;
   /** True while this chapter or the whole book is being narrated. */
   locked: boolean;
+  selectedVoiceId: string | null;
+  premiumAvailableSeconds: number;
 };
 
 type ApiPayload = { error?: { code?: string; message?: string } };
@@ -25,8 +30,17 @@ function isPlaying(item: ParagraphViewItem, time: number): boolean {
   return item.start !== null && item.end !== null && time >= item.start && time < item.end;
 }
 
-export function ChapterParagraphs({ chapterId, projectId, audioId, view, locked }: ChapterParagraphsProps) {
+export function ChapterParagraphs({
+  chapterId,
+  projectId,
+  audioId,
+  view,
+  locked,
+  selectedVoiceId,
+  premiumAvailableSeconds,
+}: ChapterParagraphsProps) {
   const router = useRouter();
+  const voices = useVoiceOptions();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [time, setTime] = useState(-1);
@@ -34,6 +48,19 @@ export function ChapterParagraphs({ chapterId, projectId, audioId, view, locked 
   const [pending, setPending] = useState<number | null>(null);
   const [error, setError] = useState<{ index: number; message: string } | null>(null);
   const changedCount = view.paragraphs.filter((item) => item.changed).length;
+  const selectedVoice = useMemo(
+    () => voices.find((voice) => voice.id === selectedVoiceId) ?? null,
+    [voices, selectedVoiceId],
+  );
+  const premiumVoice = selectedVoice?.tier === "PREMIUM";
+  const editingNeeded =
+    premiumVoice && editing
+      ? estimatePremiumSeconds({
+          characters: editing.text.trim().length,
+          languageCode: selectedVoice.language,
+        })
+      : 0;
+  const editingShort = premiumVoice && editingNeeded > premiumAvailableSeconds;
 
   useEffect(() => {
     if (!audioId) {
@@ -134,6 +161,10 @@ export function ChapterParagraphs({ chapterId, projectId, audioId, view, locked 
           </p>
         ) : null}
 
+        {premiumVoice && !locked ? (
+          <PremiumEstimate neededSeconds={0} availableSeconds={premiumAvailableSeconds} />
+        ) : null}
+
         <ol className="space-y-1">
           {view.paragraphs.map((item) => {
             const active = isPlaying(item, time);
@@ -161,7 +192,13 @@ export function ChapterParagraphs({ chapterId, projectId, audioId, view, locked 
                       <Button
                         size="sm"
                         onClick={() => void submit(item, { text: editing.text })}
-                        disabled={busy || locked || editing.text.trim().length === 0 || editing.text.trim() === item.text}
+                        disabled={
+                          busy ||
+                          locked ||
+                          editingShort ||
+                          editing.text.trim().length === 0 ||
+                          editing.text.trim() === item.text
+                        }
                       >
                         {busy ? "Starting..." : "Save and regenerate"}
                       </Button>
@@ -169,6 +206,14 @@ export function ChapterParagraphs({ chapterId, projectId, audioId, view, locked 
                         Cancel
                       </Button>
                     </div>
+                    {premiumVoice && editing.text.trim().length > 0 && editing.text.trim() !== item.text ? (
+                      <PremiumEstimate
+                        neededSeconds={editingNeeded}
+                        availableSeconds={premiumAvailableSeconds}
+                        action="regenerate"
+                        variant="compact"
+                      />
+                    ) : null}
                   </div>
                 ) : (
                   <div className="flex items-start gap-3">
@@ -210,14 +255,15 @@ export function ChapterParagraphs({ chapterId, projectId, audioId, view, locked 
                         </Button>
                       ) : null}
                       {view.retryAvailable && item.speakable && !item.changed ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => void submit(item, { retry: true })}
-                          disabled={locked || pending !== null}
-                        >
-                          {busy ? "Starting..." : "Try again"}
-                        </Button>
+                        <RetryParagraphButton
+                          busy={busy}
+                          locked={locked || pending !== null}
+                          premiumVoice={premiumVoice}
+                          text={item.text}
+                          languageCode={selectedVoice?.language}
+                          availableSeconds={premiumAvailableSeconds}
+                          onRetry={() => void submit(item, { retry: true })}
+                        />
                       ) : null}
                     </div>
                   </div>
@@ -229,5 +275,50 @@ export function ChapterParagraphs({ chapterId, projectId, audioId, view, locked 
         </ol>
       </CardContent>
     </Card>
+  );
+}
+
+function RetryParagraphButton({
+  busy,
+  locked,
+  premiumVoice,
+  text,
+  languageCode,
+  availableSeconds,
+  onRetry,
+}: {
+  busy: boolean;
+  locked: boolean;
+  premiumVoice: boolean;
+  text: string;
+  languageCode?: string;
+  availableSeconds: number;
+  onRetry: () => void;
+}) {
+  const needed = premiumVoice
+    ? estimatePremiumSeconds({ characters: text.length, languageCode })
+    : 0;
+  const short = needed > availableSeconds;
+  const labelMinutes = estimatedMinutes(needed);
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onRetry}
+        disabled={locked || short}
+        title={premiumVoice ? `Uses about ${labelMinutes} premium min · ${remainingMinutes(availableSeconds)} left` : undefined}
+      >
+        {busy ? "Starting..." : "Try again"}
+      </Button>
+      {premiumVoice && short ? (
+        <PremiumEstimate
+          neededSeconds={needed}
+          availableSeconds={availableSeconds}
+          action="regenerate"
+          variant="compact"
+        />
+      ) : null}
+    </div>
   );
 }

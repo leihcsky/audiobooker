@@ -25,8 +25,7 @@ const GENDER_ORDER = ["Female", "Male", "Neutral", null] as const;
 export function groupVoices<T extends GroupableVoice>(voices: T[]): VoiceGroup<T>[] {
   const groups: VoiceGroup<T>[] = [];
   for (const tier of TIER_ORDER) {
-    const tierName = tier === "STANDARD" ? "Standard" : "Premium";
-    const suffix = tier === "PREMIUM" ? " (uses premium minutes)" : "";
+    const tierName = tier === "STANDARD" ? "Standard" : "Premium — paid minutes";
     for (const gender of GENDER_ORDER) {
       const members = voices.filter(
         (voice) => voice.tier === tier && voiceGenderLabel(voice.gender) === gender,
@@ -34,7 +33,7 @@ export function groupVoices<T extends GroupableVoice>(voices: T[]): VoiceGroup<T
       if (members.length > 0) {
         groups.push({
           key: `${tier}:${gender ?? "other"}`,
-          label: `${tierName} · ${gender ?? "Other"}${suffix}`,
+          label: `${tierName} · ${gender ?? "Other"}`,
           voices: members,
         });
       }

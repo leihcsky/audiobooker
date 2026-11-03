@@ -176,8 +176,12 @@ export function ChapterTtsPanel({
                 : "Generate Audio"}
           </Button>
         </div>
-        {premiumNeeded > 0 && !busy ? (
-          <PremiumEstimate neededSeconds={premiumNeeded} availableSeconds={premiumAvailableSeconds} />
+        {selectedVoice?.tier === "PREMIUM" && !busy ? (
+          <PremiumEstimate
+            neededSeconds={premiumNeeded}
+            availableSeconds={premiumAvailableSeconds}
+            action={hasAudio ? "regenerate" : "generate"}
+          />
         ) : null}
         {projectGenerating ? (
           <p className="text-sm text-muted-foreground">

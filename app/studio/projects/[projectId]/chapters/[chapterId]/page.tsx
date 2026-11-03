@@ -105,6 +105,8 @@ export default async function ChapterDetailPage({ params }: ChapterPageProps) {
           audioId={chapter.currentAudio?.id ?? null}
           view={paragraphView}
           locked={locked}
+          selectedVoiceId={chapter.selectedVoiceId}
+          premiumAvailableSeconds={premium.balance.availableSeconds}
         />
       ) : null}
 

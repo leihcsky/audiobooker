@@ -4,6 +4,9 @@ import {
   billablePremiumSeconds,
   estimatedMinutes,
   estimatePremiumSeconds,
+  PREMIUM_CRITICAL_MINUTES,
+  PREMIUM_LOW_MINUTES,
+  premiumNoticeLevel,
   remainingMinutes,
 } from "@/lib/billing/premium-usage";
 
@@ -62,5 +65,18 @@ describe("minute display helpers", () => {
     expect(estimatedMinutes(61)).toBe(2);
     expect(estimatedMinutes(1)).toBe(1);
     expect(estimatedMinutes(0)).toBe(0);
+  });
+});
+
+describe("premiumNoticeLevel", () => {
+  it("flags a job that needs more than the balance before it starts", () => {
+    expect(premiumNoticeLevel(600, 120)).toBe("short");
+  });
+
+  it("warns at 20 minutes and urges a pack at 5", () => {
+    expect(premiumNoticeLevel(0, PREMIUM_LOW_MINUTES * 60)).toBe("low");
+    expect(premiumNoticeLevel(0, (PREMIUM_LOW_MINUTES + 1) * 60)).toBe("ok");
+    expect(premiumNoticeLevel(0, PREMIUM_CRITICAL_MINUTES * 60)).toBe("critical");
+    expect(premiumNoticeLevel(60, PREMIUM_CRITICAL_MINUTES * 60)).toBe("critical");
   });
 });

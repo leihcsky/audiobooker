@@ -232,11 +232,15 @@ function PackCard({ pack, creator, signedIn }: { pack: MinutePack; creator: bool
       <p className="mt-1 text-sm text-muted-foreground">{pack.description}</p>
       <p className="mt-4 flex-1 text-lg font-semibold">
         ${price}
-        {!creator ? (
+        {creator ? (
+          <span className="ml-2 text-sm font-normal text-muted-foreground line-through">
+            ${pack.priceUsd}
+          </span>
+        ) : (
           <span className="ml-2 text-sm font-normal text-muted-foreground">
             Creator ${pack.creatorPriceUsd}
           </span>
-        ) : null}
+        )}
       </p>
       <div className="mt-4">
         {signedIn ? (

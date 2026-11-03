@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     const body = Buffer.from(await file.arrayBuffer());
-    await transferSourceObject({
+    const sourceFile = await transferSourceObject({
       actor,
       objectKey,
       filename: file.name,
@@ -24,6 +24,6 @@ export async function POST(request: Request) {
       body,
     });
 
-    return success({ uploaded: true });
+    return success({ uploaded: true, sourceFile });
   });
 }

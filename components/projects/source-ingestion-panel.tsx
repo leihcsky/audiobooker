@@ -107,12 +107,16 @@ export function SourceIngestionPanel({
         method: "POST",
         body: uploadBody,
       });
-      if (!uploadResponse.ok) {
-        const payload = (await uploadResponse.json().catch(() => null)) as ApiError | null;
-        setError(userFacingError(payload?.error.code));
+      const uploadPayload = (await uploadResponse.json().catch(() => null)) as
+        | { success: true; data: { uploaded: true; sourceFile?: { id: string } } }
+        | ApiError
+        | null;
+      if (!uploadResponse.ok || !uploadPayload?.success) {
+        setError(userFacingError(uploadPayload && !uploadPayload.success ? uploadPayload.error.code : undefined));
         return;
       }
 
+      let sourceFileId = uploadPayload.data.sourceFile?.id ?? null;
       const confirmResponse = await fetch(`/api/projects/${projectId}/source-files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,12 +131,12 @@ export function SourceIngestionPanel({
         | { success: true; data: { sourceFile: { id: string } } }
         | ApiError
         | null;
-      if (!confirmResponse.ok || !confirmPayload?.success) {
+      if (confirmResponse.ok && confirmPayload?.success) {
+        sourceFileId = confirmPayload.data.sourceFile.id;
+      } else if (!sourceFileId) {
         setError(userFacingError(confirmPayload && !confirmPayload.success ? confirmPayload.error.code : undefined));
         return;
       }
-
-      const sourceFileId = confirmPayload.data.sourceFile.id;
       if (chapterCount === 0) {
         await startParse(sourceFileId);
         return;

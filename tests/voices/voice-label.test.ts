@@ -39,8 +39,8 @@ describe("groupVoices", () => {
       "Standard · Female",
       "Standard · Male",
       "Standard · Other",
-      "Premium · Male (uses premium minutes)",
-      "Premium · Neutral (uses premium minutes)",
+      "Premium — paid minutes · Male",
+      "Premium — paid minutes · Neutral",
     ]);
     expect(groups.flatMap((group) => group.voices.map((voice) => voice.id))).toEqual([
       "s-female",

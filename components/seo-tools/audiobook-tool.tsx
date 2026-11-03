@@ -9,6 +9,7 @@ import { useProjectCover } from "@/components/projects/use-project-cover";
 import { BookPlayer } from "@/components/seo-tools/book-player";
 import { SaveProjectCta } from "@/components/seo-tools/save-project-cta";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
+import { VoiceSelect, type VoiceOption } from "@/components/tts/voice-select";
 import { trackEvent } from "@/lib/analytics/track";
 import { planNarrationWithinBudget } from "@/lib/tools/narration-plan";
 import { acceptAttribute, type SeoToolConfig, type ToolFormat } from "@/lib/tools/tool-config";
@@ -22,22 +23,11 @@ import type { ChapterSummary, JobSummary, ProjectDetailDto } from "@/lib/project
 import type { ExportDto } from "@/lib/export/export.dto";
 import { titleFromFilename } from "@/lib/projects/project-title";
 import { formatSpokenLength } from "@/lib/tts/narration-length";
-import { groupVoices, voiceLabel } from "@/lib/voices/voice-label";
 import { narrationFailureCopy } from "@/lib/tts/narration-failure";
 
 type ApiError = {
   success: false;
   error: { code: string; message: string };
-};
-
-type VoiceOption = {
-  id: string;
-  provider: string;
-  name: string;
-  language: string;
-  languageName: string;
-  gender?: string;
-  tier: "STANDARD" | "PREMIUM";
 };
 
 type ToolLimits = {
@@ -50,6 +40,27 @@ type AudiobookToolProps = {
   config: SeoToolConfig;
   signedIn: boolean;
 };
+
+type ToolSessionPayload = {
+  success: true;
+  data: { projectId: string | null; limits: ToolLimits };
+};
+
+/** One shared boot request so React Strict Mode does not create two anonymous sessions. */
+let toolSessionBoot: Promise<ToolSessionPayload> | null = null;
+
+async function bootToolSession(): Promise<ToolSessionPayload> {
+  toolSessionBoot ??= (async () => {
+    const response = await fetch("/api/tools/session", { method: "POST" });
+    const payload = (await response.json().catch(() => null)) as ToolSessionPayload | ApiError | null;
+    if (!response.ok || !payload || !("success" in payload) || payload.success !== true) {
+      toolSessionBoot = null;
+      throw new Error("Unable to start a free-tool session.");
+    }
+    return payload;
+  })();
+  return toolSessionBoot;
+}
 
 function extensionForFile(file: File): ToolFormat | null {
   const name = file.name.toLowerCase();
@@ -263,21 +274,14 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
     let cancelled = false;
     void (async () => {
       try {
-        const [sessionResponse, voicesResponse] = await Promise.all([
-          fetch("/api/tools/session", { method: "POST" }),
+        const [sessionPayload, voicesResponse] = await Promise.all([
+          bootToolSession(),
           fetch("/api/voices"),
         ]);
-        const sessionPayload = await readJson<{
-          success: true;
-          data: { projectId: string | null; limits: ToolLimits };
-        }>(sessionResponse);
         const voicesPayload = await readJson<{
           success: true;
           data: { voices: VoiceOption[] };
         }>(voicesResponse);
-        if (!sessionResponse.ok || isApiError(sessionPayload) || !("data" in sessionPayload)) {
-          throw new Error("Unable to start a free-tool session.");
-        }
         if (cancelled) {
           return;
         }
@@ -673,12 +677,16 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
       uploadBody.set("objectKey", presignPayload.data.objectKey);
       uploadBody.set("file", file);
       const uploadResponse = await fetch("/api/uploads/object", { method: "POST", body: uploadBody });
-      if (!uploadResponse.ok) {
-        const payload = await readJson<ApiError>(uploadResponse);
-        setUploadError(apiErrorCopy(payload, "We couldn't upload this file."));
+      const uploadPayload = await readJson<{
+        success: true;
+        data: { uploaded: true; sourceFile?: { id: string } };
+      }>(uploadResponse);
+      if (!uploadResponse.ok || isApiError(uploadPayload) || !("data" in uploadPayload)) {
+        setUploadError(apiErrorCopy(uploadPayload, "We couldn't upload this file."));
         return;
       }
 
+      let sourceId = uploadPayload.data.sourceFile?.id ?? null;
       const confirmResponse = await fetch(`/api/projects/${id}/source-files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -689,7 +697,15 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
           sizeBytes: file.size,
         }),
       });
-      if (!confirmResponse.ok) {
+      if (confirmResponse.ok) {
+        const confirmPayload = await readJson<{
+          success: true;
+          data: { sourceFile: { id: string } };
+        }>(confirmResponse);
+        if (!isApiError(confirmPayload) && "data" in confirmPayload) {
+          sourceId = confirmPayload.data.sourceFile.id;
+        }
+      } else if (!sourceId) {
         const payload = await readJson<ApiError>(confirmResponse);
         setUploadError(apiErrorCopy(payload));
         return;
@@ -704,7 +720,8 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
       setExportError(null);
       setDownloadStarted(false);
       const uploaded = await loadProject(id);
-      const source = uploaded.sourceFiles[0];
+      const source =
+        uploaded.sourceFiles.find((item) => item.id === sourceId) ?? uploaded.sourceFiles[0];
       if (source) {
         await startParse(id, source.id);
       }
@@ -1040,23 +1057,13 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <div className="space-y-2">
               <Label htmlFor="seo-voice">Narration voice</Label>
-              <select
+              <VoiceSelect
                 id="seo-voice"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                voices={voices}
                 value={voiceId}
-                onChange={(event) => setVoiceId(event.target.value)}
+                onChange={setVoiceId}
                 disabled={pending !== null || parsing || busyGenerating}
-              >
-                {groupVoices(voices).map((group) => (
-                  <optgroup key={group.key} label={group.label}>
-                    {group.voices.map((voice) => (
-                      <option key={voice.id} value={voice.id}>
-                        {voiceLabel(voice)}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              />
             </div>
             <SpeechSpeedControl
               id="seo-speed"
