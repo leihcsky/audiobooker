@@ -1,24 +1,23 @@
-// Local testing only: adds purchased premium minutes to an account, as a
-// minute pack would, without going through Waffo checkout. Usage:
+// Adds purchased premium minutes without Waffo checkout. Locally any email
+// works. In production only emails listed in BILLING_TEST_EMAILS are allowed.
 //   npm run billing:grant-minutes -- you@example.com 30
 import { randomUUID } from "node:crypto";
 import prismaClient from "../generated/prisma/index.js";
+import { assertBillingAdminAllowed } from "./billing-admin.mjs";
 
 const { PrismaClient } = prismaClient;
 
 async function main() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("billing:grant-minutes is for local testing only.");
-  }
-  const [email, minutesArg] = process.argv.slice(2);
+  const [rawEmail, minutesArg] = process.argv.slice(2);
   const minutes = Number(minutesArg);
-  if (!email || !Number.isInteger(minutes) || minutes <= 0 || minutes > 10_000) {
+  if (!rawEmail || !Number.isInteger(minutes) || minutes <= 0 || minutes > 10_000) {
     throw new Error("Usage: npm run billing:grant-minutes -- <email> <minutes 1-10000>");
   }
+  const email = assertBillingAdminAllowed(rawEmail);
 
   const prisma = new PrismaClient();
   try {
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       throw new Error(`No account found for ${email}.`);
     }

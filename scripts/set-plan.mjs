@@ -1,24 +1,24 @@
-// Local testing only: switches an account between Free and Creator without
-// going through Waffo checkout (manual subscriptions). Usage:
+// Switches an account between Free and Creator without Waffo checkout
+// (manual subscriptions). Locally any email works. In production only
+// emails listed in BILLING_TEST_EMAILS are allowed.
 //   npm run billing:set-plan -- you@example.com creator
 //   npm run billing:set-plan -- you@example.com free
 import prismaClient from "../generated/prisma/index.js";
+import { assertBillingAdminAllowed } from "./billing-admin.mjs";
 
 const { PrismaClient } = prismaClient;
 const PLAN_IDS = ["free", "creator"];
 
 async function main() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("billing:set-plan is for local testing only.");
-  }
-  const [email, planId] = process.argv.slice(2);
-  if (!email || !PLAN_IDS.includes(planId)) {
+  const [rawEmail, planId] = process.argv.slice(2);
+  if (!rawEmail || !PLAN_IDS.includes(planId)) {
     throw new Error("Usage: npm run billing:set-plan -- <email> <free|creator>");
   }
+  const email = assertBillingAdminAllowed(rawEmail);
 
   const prisma = new PrismaClient();
   try {
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       throw new Error(`No account found for ${email}.`);
     }
