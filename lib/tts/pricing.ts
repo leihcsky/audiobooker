@@ -22,9 +22,33 @@ const DEFAULT_PRICING: ProviderPricing[] = [
     currency: "USD",
   },
   {
+    providerId: "replicate",
+    model: "google/gemini-3.8-flash-tts",
+    inputPricePer1KCharacters: readPrice("REPLICATE_GEMINI_PRICE_PER_1K_CHARS", 0.1),
+    currency: "USD",
+  },
+  {
+    providerId: "replicate",
+    model: "google/gemini-3.1-flash-tts",
+    inputPricePer1KCharacters: readPrice("REPLICATE_GEMINI_PRICE_PER_1K_CHARS", 0.1),
+    currency: "USD",
+  },
+  {
     providerId: "openai",
     model: "tts-1",
     inputPricePer1KCharacters: readPrice("OPENAI_TTS_PRICE_PER_1K_CHARS", 0.015),
+    currency: "USD",
+  },
+  {
+    providerId: "elevenlabs",
+    model: "eleven_v4",
+    inputPricePer1KCharacters: readPrice("ELEVENLABS_PRICE_PER_1K_CHARS", 0.3),
+    currency: "USD",
+  },
+  {
+    providerId: "elevenlabs",
+    model: "eleven_v4_turbo",
+    inputPricePer1KCharacters: readPrice("ELEVENLABS_TURBO_PRICE_PER_1K_CHARS", 0.15),
     currency: "USD",
   },
 ];

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { CheckIcon, ChevronDownIcon } from "@/components/ui/icons";
-import { groupVoices, voiceLabel } from "@/lib/voices/voice-label";
+import { uniqueSorted, voiceLocaleParts } from "@/lib/voices/voice-locale";
+import { voiceGenderLabel } from "@/lib/voices/voice-label";
 import { cn } from "@/lib/utils";
 
 export type VoiceOption = {
@@ -13,7 +14,24 @@ export type VoiceOption = {
   languageName: string;
   gender?: string;
   tier: "STANDARD" | "PREMIUM";
+  /** Absent or true means speed is adjustable; false locks narration at 1.0×. */
+  supportsSpeed?: boolean;
 };
+
+/** Gemini (and any voice that opts out) cannot vary narration rate. */
+export function voiceOptionSupportsSpeed(voice: VoiceOption | null | undefined): boolean {
+  if (!voice) {
+    return true;
+  }
+  if (voice.supportsSpeed === false) {
+    return false;
+  }
+  // Fallback if an older API payload omitted supportsSpeed.
+  if (voice.id.startsWith("replicate-gemini-") || voice.id.startsWith("elevenlabs-")) {
+    return false;
+  }
+  return true;
+}
 
 export function useVoiceOptions(): VoiceOption[] {
   const [voices, setVoices] = useState<VoiceOption[]>([]);
@@ -45,6 +63,10 @@ type VoiceSelectProps = {
   disabled?: boolean;
 };
 
+type TierTab = "STANDARD" | "PREMIUM";
+
+const GENDER_SECTIONS = ["Female", "Male", "Neutral"] as const;
+
 function PremiumBadge({ className }: { className?: string }) {
   return (
     <span
@@ -59,12 +81,44 @@ function PremiumBadge({ className }: { className?: string }) {
   );
 }
 
+function localeOf(voice: VoiceOption) {
+  return voiceLocaleParts({
+    languageName: voice.languageName,
+    language: voice.language,
+  });
+}
+
 export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSelectProps) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const selected = voices.find((voice) => voice.id === value) ?? null;
   const premium = selected?.tier === "PREMIUM";
+
+  const hasPremium = voices.some((voice) => voice.tier === "PREMIUM");
+  const hasStandard = voices.some((voice) => voice.tier === "STANDARD");
+
+  const [tier, setTier] = useState<TierTab>(selected?.tier ?? (hasStandard ? "STANDARD" : "PREMIUM"));
+  const [language, setLanguage] = useState(() => (selected ? localeOf(selected).language : ""));
+  const [accent, setAccent] = useState(() => (selected ? localeOf(selected).accent : ""));
+
+  function syncFiltersFromVoice(voice: VoiceOption) {
+    const locale = localeOf(voice);
+    setTier(voice.tier);
+    setLanguage(locale.language);
+    setAccent(locale.accent);
+  }
+
+  function openMenu() {
+    if (selected) {
+      syncFiltersFromVoice(selected);
+    } else if (hasStandard) {
+      setTier("STANDARD");
+    } else if (hasPremium) {
+      setTier("PREMIUM");
+    }
+    setOpen(true);
+  }
 
   useEffect(() => {
     if (!open || disabled || voices.length === 0) {
@@ -88,6 +142,43 @@ export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSele
     };
   }, [open, disabled, voices.length]);
 
+  const tierVoices = useMemo(
+    () => voices.filter((voice) => voice.tier === tier),
+    [voices, tier],
+  );
+
+  const languages = useMemo(
+    () => uniqueSorted(tierVoices.map((voice) => localeOf(voice).language)),
+    [tierVoices],
+  );
+
+  const activeLanguage = languages.includes(language) ? language : (languages[0] ?? "");
+
+  const languageVoices = useMemo(
+    () => tierVoices.filter((voice) => localeOf(voice).language === activeLanguage),
+    [tierVoices, activeLanguage],
+  );
+
+  const accents = useMemo(
+    () => uniqueSorted(languageVoices.map((voice) => localeOf(voice).accent)),
+    [languageVoices],
+  );
+
+  const activeAccent = accents.includes(accent) ? accent : (accents[0] ?? "");
+
+  const filteredVoices = useMemo(
+    () =>
+      languageVoices.filter((voice) => localeOf(voice).accent === activeAccent),
+    [languageVoices, activeAccent],
+  );
+
+  const genderSections = useMemo(() => {
+    return GENDER_SECTIONS.map((label) => ({
+      label,
+      voices: filteredVoices.filter((voice) => voiceGenderLabel(voice.gender) === label),
+    })).filter((section) => section.voices.length > 0);
+  }, [filteredVoices]);
+
   const menuOpen = open && !disabled && voices.length > 0;
 
   return (
@@ -100,7 +191,7 @@ export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSele
           aria-expanded={menuOpen}
           aria-controls={listId}
           disabled={disabled || voices.length === 0}
-          onClick={() => setOpen((current) => !current)}
+          onClick={() => (menuOpen ? setOpen(false) : openMenu())}
           className={cn(
             "flex h-auto min-h-11 w-full items-center gap-3 rounded-md border bg-background px-3 py-2 text-left text-sm transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -117,7 +208,7 @@ export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSele
                 <span className="block font-semibold text-foreground">{selected.name}</span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
                   {[voiceGenderLabelShort(selected), selected.languageName].filter(Boolean).join(" · ")}
-                  {premium ? " · paid minutes" : ""}
+                  {premium ? " · paid minutes" : " · free"}
                 </span>
               </>
             ) : (
@@ -135,46 +226,104 @@ export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSele
         {menuOpen ? (
           <div
             id={listId}
-            role="listbox"
-            aria-labelledby={id}
-            className="absolute z-40 mt-1 max-h-72 w-full overflow-auto rounded-md border border-border bg-card py-1 shadow-lg"
+            className="absolute z-40 mt-1 w-full overflow-hidden rounded-md border border-border bg-card shadow-lg"
           >
-            {groupVoices(voices).map((group) => (
-              <div key={group.key} role="group" aria-label={group.label}>
-                <p className="sticky top-0 bg-card px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {group.label}
+            <div className="flex border-b border-border p-1">
+              {hasStandard ? (
+                <TierTabButton
+                  active={tier === "STANDARD"}
+                  onClick={() => setTier("STANDARD")}
+                  label="Standard"
+                  hint="Free"
+                />
+              ) : null}
+              {hasPremium ? (
+                <TierTabButton
+                  active={tier === "PREMIUM"}
+                  onClick={() => setTier("PREMIUM")}
+                  label="Premium"
+                  hint="Paid"
+                />
+              ) : null}
+            </div>
+
+            <div className="grid gap-2 border-b border-border p-3 sm:grid-cols-2">
+              <label className="space-y-1 text-xs">
+                <span className="font-medium text-muted-foreground">Language</span>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  value={activeLanguage}
+                  onChange={(event) => setLanguage(event.target.value)}
+                  disabled={languages.length === 0}
+                >
+                  {languages.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs">
+                <span className="font-medium text-muted-foreground">Accent</span>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  value={activeAccent}
+                  onChange={(event) => setAccent(event.target.value)}
+                  disabled={accents.length === 0}
+                >
+                  {accents.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div role="listbox" aria-labelledby={id} className="max-h-72 overflow-auto py-1">
+              {genderSections.length === 0 ? (
+                <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  No voices for this language and accent.
                 </p>
-                {group.voices.map((voice) => {
-                  const isSelected = voice.id === value;
-                  const isPremium = voice.tier === "PREMIUM";
-                  return (
-                    <button
-                      key={voice.id}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      className={cn(
-                        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
-                        isSelected ? "bg-primary/10 font-semibold text-foreground" : "hover:bg-muted",
-                        isPremium && !isSelected && "bg-amber-50/40",
-                      )}
-                      onClick={() => {
-                        onChange(voice.id);
-                        setOpen(false);
-                      }}
-                    >
-                      <CheckIcon
-                        className={cn("size-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block">{voiceLabel(voice)}</span>
-                      </span>
-                      {isPremium ? <PremiumBadge /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+              ) : (
+                genderSections.map((section) => (
+                  <div key={section.label} role="group" aria-label={section.label}>
+                    <p className="sticky top-0 bg-card px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {section.label}
+                    </p>
+                    {section.voices.map((voice) => {
+                      const isSelected = voice.id === value;
+                      const isPremium = voice.tier === "PREMIUM";
+                      return (
+                        <button
+                          key={voice.id}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          className={cn(
+                            "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
+                            isSelected ? "bg-primary/10 font-semibold text-foreground" : "hover:bg-muted",
+                            isPremium && !isSelected && "bg-amber-50/40",
+                          )}
+                          onClick={() => {
+                            onChange(voice.id);
+                            setOpen(false);
+                          }}
+                        >
+                          <CheckIcon
+                            className={cn("size-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block">{voice.name}</span>
+                          </span>
+                          {isPremium ? <PremiumBadge /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         ) : null}
       </div>
@@ -188,16 +337,32 @@ export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSele
   );
 }
 
+function TierTabButton({
+  active,
+  onClick,
+  label,
+  hint,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex flex-1 flex-col items-center rounded-md px-3 py-2 text-sm transition-colors",
+        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+      )}
+    >
+      <span className="font-medium">{label}</span>
+      <span className={cn("text-[11px]", active ? "text-primary-foreground/80" : "")}>{hint}</span>
+    </button>
+  );
+}
+
 function voiceGenderLabelShort(voice: VoiceOption): string | null {
-  const gender = voice.gender?.toLowerCase();
-  if (gender === "female") {
-    return "Female";
-  }
-  if (gender === "male") {
-    return "Male";
-  }
-  if (gender === "neutral") {
-    return "Neutral";
-  }
-  return null;
+  return voiceGenderLabel(voice.gender);
 }

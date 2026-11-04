@@ -5,14 +5,16 @@ import {
   ttsVoiceNotFound,
 } from "@/lib/api/errors";
 import { createEdgeProvider } from "@/lib/tts/providers/edge";
+import { createElevenLabsProvider } from "@/lib/tts/providers/elevenlabs";
 import { createOpenAIProvider } from "@/lib/tts/providers/openai";
 import { createReplicateProvider } from "@/lib/tts/providers/replicate";
 import type { TTSProvider, TtsTier, VoiceAccess, VoiceDefinition } from "@/lib/tts/types";
-import { ALL_VOICES, findVoice } from "@/lib/tts/voices";
+import { findVoice } from "@/lib/tts/voices";
 
 const FACTORIES: Record<string, () => TTSProvider> = {
   edge: createEdgeProvider,
   replicate: createReplicateProvider,
+  elevenlabs: createElevenLabsProvider,
   openai: createOpenAIProvider,
 };
 
@@ -40,22 +42,29 @@ export function listAvailableVoices(
   const language = filters?.language?.trim().toLowerCase();
   const providerFilter = filters?.provider?.trim().toLowerCase();
   const premiumAllowed = access.premium;
+  const voices: VoiceDefinition[] = [];
 
-  const voices = ALL_VOICES.filter((voice) => {
-    if (voice.tier === "premium" && !premiumAllowed) {
-      return false;
+  for (const providerId of Object.keys(FACTORIES)) {
+    if (providerFilter && providerId !== providerFilter) {
+      continue;
     }
-    if (filters?.tier && voice.tier !== filters.tier) {
-      return false;
+    const provider = getTtsProvider(providerId);
+    if (!provider.isEnabled()) {
+      continue;
     }
-    if (providerFilter && voice.provider !== providerFilter) {
-      return false;
+    for (const voice of provider.listVoices()) {
+      if (voice.tier === "premium" && !premiumAllowed) {
+        continue;
+      }
+      if (filters?.tier && voice.tier !== filters.tier) {
+        continue;
+      }
+      if (language && !voice.languageCode.toLowerCase().startsWith(language)) {
+        continue;
+      }
+      voices.push(voice);
     }
-    if (language && !voice.languageCode.toLowerCase().startsWith(language)) {
-      return false;
-    }
-    return getTtsProvider(voice.provider).isEnabled();
-  });
+  }
 
   return voices.sort((a, b) => tierRank(a.tier) - tierRank(b.tier));
 }
@@ -89,6 +98,10 @@ export function resolveVoice(
   }
   const provider = getTtsProvider(voice.provider);
   if (provider.tier !== voice.tier) {
+    throw ttsVoiceNotFound();
+  }
+  // Inactive Replicate family (e.g. MiniMax voice while Gemini is configured).
+  if (!provider.getVoice(voice.id)) {
     throw ttsVoiceNotFound();
   }
   if (!provider.isEnabled()) {

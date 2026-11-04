@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VoicePreviewPlayer } from "@/components/tts/voice-preview";
-import { useVoiceOptions, VoiceSelect } from "@/components/tts/voice-select";
+import { useVoiceOptions, VoiceSelect, voiceOptionSupportsSpeed } from "@/components/tts/voice-select";
 import type { PronunciationEntryDto } from "@/lib/pronunciation/pronunciation.service";
 import { userFacingTtsError } from "@/lib/tts/tts-error-copy";
 import { PRONUNCIATION_REPLACEMENT_MAX, PRONUNCIATION_TERM_MAX } from "@/lib/validation/pronunciation";
@@ -83,6 +83,8 @@ export function PronunciationEditor({
   const [outdatedTotal, setOutdatedTotal] = useState(0);
 
   const voiceId = chosenVoiceId || voices[0]?.id || "";
+  const selectedVoice = voices.find((voice) => voice.id === voiceId);
+  const previewSpeed = !voiceOptionSupportsSpeed(selectedVoice) || speed === null ? null : speed;
   const baseUrl = `/api/projects/${projectId}/pronunciations`;
   const atLimit = entries.length >= maxEntries;
   const formReady = form.term.trim().length > 0 && form.replacement.trim().length > 0;
@@ -151,7 +153,7 @@ export function PronunciationEditor({
     const result = await callApi<{ audioUrl: string; text: string }>(`${baseUrl}/preview`, "POST", {
       ...form,
       voiceId,
-      ...(speed === null ? {} : { speed }),
+      ...(previewSpeed === null ? {} : { speed: previewSpeed }),
     });
     setPending(null);
     if (!result.ok || !result.data) {

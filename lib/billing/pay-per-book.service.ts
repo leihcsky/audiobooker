@@ -21,7 +21,7 @@ import { assertProjectAccess } from "@/lib/tools/access";
 import { resolveVoice } from "@/lib/tts";
 import { hashText } from "@/lib/tts/cache";
 import { estimateNarrationSeconds } from "@/lib/tts/narration-length";
-import { normalizeSpeechSpeed } from "@/lib/tts/speed";
+import { effectiveSpeechSpeed, normalizeSpeechSpeed } from "@/lib/tts/speed";
 import { assertPremiumBatchCostGuard } from "@/lib/usage/usage.service";
 
 export type { PayPerBookOrderDto, PayPerBookQuoteDto } from "@/lib/billing/pay-per-book-shared";
@@ -168,7 +168,7 @@ export async function createPayPerBookQuote(input: {
     throw validationError("Select chapters with enough text to create an order.");
   }
 
-  const speed = normalizeSpeechSpeed(input.speed);
+  const speed = effectiveSpeechSpeed(input.speed, voice.supportsSpeed);
   const expiresAt = new Date(Date.now() + PAY_PER_BOOK_CONFIG.quoteTtlMinutes * 60_000);
   const chapterHashes = Object.fromEntries(chapters.map((chapter) => [chapter.id, chapter.textHash]));
 

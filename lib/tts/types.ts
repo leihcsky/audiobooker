@@ -15,6 +15,8 @@ export type VoiceDefinition = {
   gender?: string;
   tier: TtsTier;
   supportsPreview: boolean;
+  /** When false, narration always uses 1.0× (provider has no speed input). Default true. */
+  supportsSpeed?: boolean;
 };
 
 export type TTSGenerateInput = {

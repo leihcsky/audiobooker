@@ -22,7 +22,7 @@ import {
   sliceSegments,
   type PlannedChunk,
 } from "@/lib/tts/segments";
-import { normalizeSpeechSpeed } from "@/lib/tts/speed";
+import { effectiveSpeechSpeed } from "@/lib/tts/speed";
 import type { TTSProvider, VoiceDefinition } from "@/lib/tts/types";
 import { recordTtsCharacters } from "@/lib/usage/usage.service";
 
@@ -63,8 +63,9 @@ export async function runTtsJob(jobId: string): Promise<void> {
     }
     const { voice, provider } = resolveVoice({ premium: job.tier === "PREMIUM" }, voiceId);
     const model = provider.modelFor("generate");
-    const speed = normalizeSpeechSpeed(
+    const speed = effectiveSpeechSpeed(
       chapter.selectedSpeed == null ? undefined : Number(chapter.selectedSpeed),
+      voice.supportsSpeed,
     );
 
     const rules = await loadActivePronunciationRules(job.projectId, job.project.userId);

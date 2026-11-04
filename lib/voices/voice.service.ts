@@ -17,7 +17,7 @@ import {
 import { estimateMp3DurationSeconds } from "@/lib/tts/mp3";
 import { VOICE_PREVIEW_SAMPLE } from "@/lib/tts/preview-sample";
 import { withTtsRetry } from "@/lib/tts/retry";
-import { normalizeSpeechSpeed } from "@/lib/tts/speed";
+import { effectiveSpeechSpeed } from "@/lib/tts/speed";
 import type { TtsTier, VoiceDefinition } from "@/lib/tts/types";
 import {
   assertAnonymousPreviewLimit,
@@ -37,6 +37,7 @@ export type VoiceDto = {
   languageName: string;
   gender?: string;
   tier: "STANDARD" | "PREMIUM";
+  supportsSpeed: boolean;
 };
 
 export async function listVoiceDtos(
@@ -89,7 +90,7 @@ export async function previewVoiceForActor(input: {
     }
   }
 
-  const speed = normalizeSpeechSpeed(input.speed);
+  const speed = effectiveSpeechSpeed(input.speed, voice.supportsSpeed);
   const model = provider.modelFor("preview");
   const key = buildTtsCacheKey({
     provider: provider.id,
@@ -177,5 +178,6 @@ function toVoiceDto(voice: VoiceDefinition): VoiceDto {
     languageName: voice.languageName,
     gender: voice.gender,
     tier: voice.tier === "premium" ? "PREMIUM" : "STANDARD",
+    supportsSpeed: voice.supportsSpeed !== false,
   };
 }

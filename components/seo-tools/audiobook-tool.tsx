@@ -9,7 +9,7 @@ import { useProjectCover } from "@/components/projects/use-project-cover";
 import { BookPlayer } from "@/components/seo-tools/book-player";
 import { SaveProjectCta } from "@/components/seo-tools/save-project-cta";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
-import { VoiceSelect, type VoiceOption } from "@/components/tts/voice-select";
+import { VoiceSelect, voiceOptionSupportsSpeed, type VoiceOption } from "@/components/tts/voice-select";
 import { trackEvent } from "@/lib/analytics/track";
 import { planNarrationWithinBudget } from "@/lib/tools/narration-plan";
 import { acceptAttribute, type SeoToolConfig, type ToolFormat } from "@/lib/tools/tool-config";
@@ -204,6 +204,9 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
   const voiceId = voices.some((voice) => voice.id === chosenVoiceId)
     ? chosenVoiceId
     : preferredVoiceId(voices, detail?.project.language);
+  const selectedVoice = voices.find((voice) => voice.id === voiceId);
+  const speedSupported = voiceOptionSupportsSpeed(selectedVoice);
+  const effectiveSpeed = speedSupported ? speed : DEFAULT_SPEECH_SPEED;
   const latestSource = detail?.sourceFiles[0] ?? null;
   const parseJob = detail?.latestParseJob ?? null;
   const parsing = parseJob?.status === "QUEUED" || parseJob?.status === "PROCESSING";
@@ -802,7 +805,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
     const response = await fetch(`/api/voices/${voiceId}/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ speed }),
+      body: JSON.stringify({ speed: effectiveSpeed }),
     });
     const payload = await readJson<{ success: true; data: { audioUrl?: string } }>(response);
     setPending(null);
@@ -837,7 +840,11 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
       const response = await fetch(`/api/projects/${projectId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceId, speed, chapterIds: queue.map((chapter) => chapter.id) }),
+        body: JSON.stringify({
+          voiceId,
+          speed: effectiveSpeed,
+          chapterIds: queue.map((chapter) => chapter.id),
+        }),
       });
       const payload = await readJson<{ success: true; data: { generation: unknown } }>(response);
       if (!response.ok || isApiError(payload) || !("data" in payload)) {
@@ -1067,9 +1074,10 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
             </div>
             <SpeechSpeedControl
               id="seo-speed"
-              value={speed}
+              value={effectiveSpeed}
               onChange={setSpeed}
               disabled={pending !== null || busyGenerating}
+              supported={speedSupported}
             />
             <div className="space-y-2 text-sm text-muted-foreground">
               {narrationPlan.toGenerate.length > 0 ? (

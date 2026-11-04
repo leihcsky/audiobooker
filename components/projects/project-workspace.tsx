@@ -15,7 +15,7 @@ import { BookSummary, SelectionSummary } from "@/components/projects/book-summar
 import { useProjectCover } from "@/components/projects/use-project-cover";
 import { BookPlayer } from "@/components/seo-tools/book-player";
 import { bookStats } from "@/lib/projects/book-stats";
-import { useVoiceOptions, VoiceSelect } from "@/components/tts/voice-select";
+import { useVoiceOptions, VoiceSelect, voiceOptionSupportsSpeed } from "@/components/tts/voice-select";
 import { useVoicePreview, VoicePreviewButton, VoicePreviewPlayer } from "@/components/tts/voice-preview";
 import { formatAudioDuration } from "@/lib/audio/format-duration";
 import { chaptersNeedingPayPerBookRegen } from "@/lib/billing/pay-per-book-shared";
@@ -112,13 +112,16 @@ export function ProjectWorkspace({
   const voiceId = voices.some((voice) => voice.id === chosenVoiceId)
     ? chosenVoiceId
     : (voices[0]?.id ?? "");
+  const selectedVoice = voices.find((voice) => voice.id === voiceId);
+  const speedSupported = voiceOptionSupportsSpeed(selectedVoice);
+  const effectiveSpeed = speedSupported ? speed : DEFAULT_SPEECH_SPEED;
   const generationActive =
     generation?.job.status === "QUEUED" || generation?.job.status === "PROCESSING";
   const chapterGenerating = chapters.some((chapter) => chapter.status === "GENERATING");
   const narrating = generationActive || chapterGenerating;
   const busy = pending !== null || narrating;
-  const preview = useVoicePreview(voiceId, speed);
-  const narration = planProjectNarration(displayChapters, voiceId, speed);
+  const preview = useVoicePreview(voiceId, effectiveSpeed);
+  const narration = planProjectNarration(displayChapters, voiceId, effectiveSpeed);
   const toNarrate = narration.targets;
   const currentChapter = generation?.currentChapterId
     ? chapters.find((chapter) => chapter.id === generation.currentChapterId) ?? null
@@ -128,7 +131,6 @@ export function ProjectWorkspace({
     .filter((chapter) => chapter.included && chapter.hasAudio)
     .map((chapter) => ({ id: chapter.id, title: chapter.title }));
   const coverUrl = useProjectCover(projectId, book.hasCover, book.updatedAt);
-  const selectedVoice = voices.find((voice) => voice.id === voiceId);
   const premiumSelected = selectedVoice?.tier === "PREMIUM";
   const premiumNeeded = premiumSelected
     ? toNarrate.reduce(
@@ -147,7 +149,7 @@ export function ProjectWorkspace({
   const ppbChapterIds =
     toNarrate.length > 0
       ? toNarrate.map((chapter) => chapter.id)
-      : chaptersNeedingPayPerBookRegen({ chapters: displayChapters, voiceId, speed });
+      : chaptersNeedingPayPerBookRegen({ chapters: displayChapters, voiceId, speed: effectiveSpeed });
   const showPayPerBook = usePayPerBook && ppbChapterIds.length > 0;
   const generateDisabled =
     !voiceId ||
@@ -195,7 +197,10 @@ export function ProjectWorkspace({
   }
 
   async function startGeneration() {
-    const body: { voiceId: string; speed: number; chapterIds?: string[] } = { voiceId, speed };
+    const body: { voiceId: string; speed: number; chapterIds?: string[] } = {
+      voiceId,
+      speed: effectiveSpeed,
+    };
     if (narration.overwritesAudio) {
       body.chapterIds = toNarrate.map((chapter) => chapter.id);
     }
@@ -345,7 +350,13 @@ export function ProjectWorkspace({
                 disabled={busy}
               />
             </div>
-            <SpeechSpeedControl id="project-speed" value={speed} onChange={setSpeed} disabled={busy} />
+            <SpeechSpeedControl
+              id="project-speed"
+              value={effectiveSpeed}
+              onChange={setSpeed}
+              disabled={busy}
+              supported={speedSupported}
+            />
           </div>
 
           {!premiumSelected && toNarrate.length > 0 ? (
@@ -387,7 +398,7 @@ export function ProjectWorkspace({
               projectId={projectId}
               chapterIds={ppbChapterIds}
               voiceId={voiceId}
-              speed={speed}
+              speed={effectiveSpeed}
               selectedChapterCount={stats.selected.chapters}
               regenerateChapterIds={
                 toNarrate.every((chapter) => chapter.hasAudio && !chapter.audioOutdated)

@@ -14,7 +14,7 @@ import { estimatePremiumSeconds } from "@/lib/billing/premium-usage";
 import { assertProjectAccess } from "@/lib/tools/access";
 import { resolveVoice } from "@/lib/tts";
 import { EDGE_PROVIDER_ID } from "@/lib/tts/providers/edge";
-import { normalizeSpeechSpeed } from "@/lib/tts/speed";
+import { effectiveSpeechSpeed } from "@/lib/tts/speed";
 import type { TTSProvider, TtsTier } from "@/lib/tts/types";
 import {
   assertAnonymousJobConcurrency,
@@ -116,7 +116,7 @@ export async function startProjectGeneration(
   const totalCharacters = targets.reduce((sum, chapter) => sum + chapter.characterCount, 0);
   const premium = voice.tier === "premium";
   const premiumUserId = premium && actor.type === "user" ? actor.userId : null;
-  const speed = normalizeSpeechSpeed(input.speed);
+  const speed = effectiveSpeechSpeed(input.speed, voice.supportsSpeed);
   const premiumSeconds = targets.map((chapter) =>
     premium
       ? estimatePremiumSeconds({

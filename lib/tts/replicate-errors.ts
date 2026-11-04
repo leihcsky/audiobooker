@@ -87,9 +87,11 @@ function isProviderBusy(text: string): boolean {
 
 function isContentRejected(text: string): boolean {
   return (
+    text.includes("content_blocked") ||
     text.includes("content_policy") ||
     text.includes("policy_violation") ||
     text.includes("content policy") ||
+    text.includes("policy reason") ||
     text.includes("safety") ||
     text.includes("nsfw")
   );

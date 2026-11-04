@@ -13,7 +13,7 @@ import { estimatePremiumSeconds } from "@/lib/billing/premium-usage";
 import { getChapterForActor } from "@/lib/chapters/chapter.service";
 import { toJobSummary, type JobSummary } from "@/lib/projects/project.detail";
 import { resolveVoice } from "@/lib/tts";
-import { normalizeSpeechSpeed } from "@/lib/tts/speed";
+import { effectiveSpeechSpeed } from "@/lib/tts/speed";
 import type { TtsTier } from "@/lib/tts/types";
 import { EDGE_PROVIDER_ID } from "@/lib/tts/providers/edge";
 import {
@@ -105,7 +105,7 @@ export async function startChapterGeneration(input: {
     throw ttsInvalidRequest("Chapter text is empty.");
   }
 
-  const speed = normalizeSpeechSpeed(input.speed ?? Number(chapter.selectedSpeed));
+  const speed = effectiveSpeechSpeed(input.speed ?? Number(chapter.selectedSpeed), voice.supportsSpeed);
   const premium = voice.tier === "premium";
   const premiumUserId = premium && actor.type === "user" ? actor.userId : null;
   const synthesisCharacters = Math.max(1, Math.min(input.synthesisCharacters ?? characterCount, characterCount));

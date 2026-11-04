@@ -7,7 +7,10 @@ const ENV_KEYS = [
   "FEATURE_EDGE_TTS",
   "FEATURE_PREMIUM_TTS",
   "FEATURE_MINIMAX_TTS",
+  "FEATURE_GEMINI_TTS",
   "REPLICATE_API_TOKEN",
+  "REPLICATE_TTS_PREVIEW_MODEL",
+  "REPLICATE_TTS_GENERATE_MODEL",
   "OPENAI_API_KEY",
 ] as const;
 const original = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
@@ -28,6 +31,9 @@ afterEach(() => {
 function enablePremium() {
   process.env.FEATURE_PREMIUM_TTS = "true";
   process.env.REPLICATE_API_TOKEN = "r8_test";
+  // Default suite assumes MiniMax unless a test opts into Gemini.
+  delete process.env.REPLICATE_TTS_GENERATE_MODEL;
+  delete process.env.REPLICATE_TTS_PREVIEW_MODEL;
 }
 
 describe("voice catalog", () => {
@@ -92,7 +98,21 @@ describe("resolveVoice", () => {
 
   it("allows premium voices for Creator when enabled", () => {
     enablePremium();
+    delete process.env.REPLICATE_TTS_GENERATE_MODEL;
     expect(resolveVoice(creator, "replicate-wise-woman").provider.id).toBe("replicate");
+  });
+
+  it("lists Gemini voices when the generate model is Gemini", () => {
+    enablePremium();
+    process.env.REPLICATE_TTS_GENERATE_MODEL = "google/gemini-3.8-flash-tts";
+    process.env.REPLICATE_TTS_PREVIEW_MODEL = "google/gemini-3.8-flash-tts";
+    const voices = listAvailableVoices(creator);
+    expect(voices.some((voice) => voice.id === "replicate-gemini-kore")).toBe(true);
+    expect(voices.some((voice) => voice.id === "replicate-wise-woman")).toBe(false);
+    expect(resolveVoice(creator, "replicate-gemini-kore").voice.providerVoiceId).toBe("Kore");
+    expect(() => resolveVoice(creator, "replicate-wise-woman")).toThrow(
+      expect.objectContaining({ code: "TTS_VOICE_NOT_FOUND" }),
+    );
   });
 
   it("does not switch to a paid provider when Edge is disabled", () => {

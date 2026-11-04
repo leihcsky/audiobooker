@@ -13,7 +13,7 @@ import { estimatePremiumSeconds } from "@/lib/billing/premium-usage";
 import { userFacingTtsError } from "@/lib/tts/tts-error-copy";
 import { PremiumEstimate } from "@/components/billing/premium-estimate";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
-import { useVoiceOptions, VoiceSelect } from "@/components/tts/voice-select";
+import { useVoiceOptions, VoiceSelect, voiceOptionSupportsSpeed } from "@/components/tts/voice-select";
 import { useVoicePreview, VoicePreviewButton, VoicePreviewPlayer } from "@/components/tts/voice-preview";
 import { formatDate } from "@/lib/utils";
 
@@ -53,11 +53,13 @@ export function ChapterTtsPanel({
   const voiceId = voices.some((voice) => voice.id === chosenVoiceId)
     ? chosenVoiceId
     : (voices[0]?.id ?? "");
-  const preview = useVoicePreview(voiceId, speed);
   const selectedVoice = useMemo(
     () => voices.find((voice) => voice.id === voiceId) ?? null,
     [voiceId, voices],
   );
+  const speedSupported = voiceOptionSupportsSpeed(selectedVoice);
+  const effectiveSpeed = speedSupported ? speed : DEFAULT_SPEECH_SPEED;
+  const preview = useVoicePreview(voiceId, effectiveSpeed);
   const premiumNeeded =
     selectedVoice?.tier === "PREMIUM"
       ? estimatePremiumSeconds({
@@ -127,7 +129,7 @@ export function ChapterTtsPanel({
       const response = await fetch(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceId, speed }),
+        body: JSON.stringify({ voiceId, speed: effectiveSpeed }),
       });
       const payload = (await response.json()) as { error?: { code?: string; message?: string } };
       if (!response.ok) {
@@ -161,9 +163,10 @@ export function ChapterTtsPanel({
 
         <SpeechSpeedControl
           id="chapter-speed"
-          value={speed}
+          value={effectiveSpeed}
           onChange={setSpeed}
           disabled={busy}
+          supported={speedSupported}
         />
 
         <div className="flex flex-wrap gap-3">

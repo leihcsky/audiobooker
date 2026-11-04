@@ -69,7 +69,60 @@ export const OPENAI_VOICES: VoiceDefinition[] = [
   },
 ];
 
-export const REPLICATE_VOICES: VoiceDefinition[] = [
+type ElevenLabsVoiceSeed = [
+  idSuffix: string,
+  providerVoiceId: string,
+  name: string,
+  gender: "female" | "male" | "neutral",
+  blurb: string,
+];
+
+/**
+ * Curated English (American) ElevenLabs voices for audiobook-style narration.
+ * Selected by usage popularity on ElevenLabs (language=English, accent=American).
+ * Short blurbs are for operators; the UI currently shows `name` only.
+ */
+const ELEVENLABS_VOICE_SEEDS: ElevenLabsVoiceSeed[] = [
+  // Male
+  ["adam", "bfGb7JTLUnZebZRiFYyq", "Adam", "male", "Distinct, deep and engaging"],
+  ["sully", "wAGzRVkxKEs8La0lmdrE", "Sully", "male", "Mature, deep and intriguing"],
+  ["henry", "pVnrL6sighQX7hVz89cp", "Henry", "male", "Deep, professional, and soothing"],
+  ["michael-c-vincent", "uju3wxzG5OhpWcoi3SMy", "Michael C. Vincent", "male", "Confident, expressive"],
+  ["wyatt", "YXpFCvM1S3JbWEJhoskW", "Wyatt", "male", "Wise rustic cowboy"],
+  ["josh", "nzFihrBIvB34imQBuxub", "Josh", "male", "Teacher for kids"],
+  ["bill-oxley", "T5cu6IU92Krx4mh43osx", "Bill Oxley", "male", "Mature American male"],
+  ["flint", "qAZH0aMXY8tw1QufPN0D", "Flint", "male", "Deep, raspy, and warm"],
+  ["spuds-oxley", "NOpBlnGInO9m6vDvFkFC", "Spuds Oxley", "male", "Grandpa"],
+  // Female
+  ["jessica-anne-bogart", "lxYfHSkYm1EzQzGhdbfc", "Jessica Anne Bogart", "female", "VO professional"],
+  ["jessa", "yj30vwTGJxSHezdAGsv9", "Jessa", "female", "Easygoing and effortless"],
+  ["arabella", "Z3R5wn05IrDiVCyEkUrK", "Arabella", "female", "Mysterious and emotive"],
+  ["lily-wolff", "qBDvhofpxp92JgXJxDjB", "Lily Wolff", "female", "Expressive and kind"],
+  ["maria-moody", "wGcFBfKz5yUQqhqr0mVy", "Maria Moody", "female", "Grandmotherly storykeeper"],
+  ["empress", "MHPwHxLx0nmGIb5Jnbly", "Empress", "female", "Smoky, breathy, and neutral"],
+  ["eve", "G4Wh6MqJNTzYtuAeMqv5", "Eve", "female", "Narrative and audiobooks"],
+  ["mia", "rCuVrCHOUMY3OwyJBJym", "Mia", "female", "Clear, smooth, professional"],
+];
+
+/** ElevenLabs v4 voices (speed not supported by the model). */
+export const ELEVENLABS_VOICES: VoiceDefinition[] = ELEVENLABS_VOICE_SEEDS.map(
+  ([idSuffix, providerVoiceId, name, gender, blurb]) => ({
+    id: `elevenlabs-${idSuffix}`,
+    provider: "elevenlabs",
+    providerVoiceId,
+    // Keep the short blurb in the label so users can tell narrators apart.
+    name: `${name} — ${blurb}`,
+    languageCode: "en-US",
+    languageName: "English (US)",
+    gender,
+    tier: "premium",
+    supportsPreview: true,
+    supportsSpeed: false,
+  }),
+);
+
+/** MiniMax Speech voices on Replicate (active when generate model is MiniMax). */
+export const REPLICATE_MINIMAX_VOICES: VoiceDefinition[] = [
   {
     id: "replicate-wise-woman",
     provider: "replicate",
@@ -204,6 +257,60 @@ export const REPLICATE_VOICES: VoiceDefinition[] = [
   },
 ];
 
+/** @deprecated Prefer REPLICATE_MINIMAX_VOICES or activeReplicateVoices(). */
+export const REPLICATE_VOICES = REPLICATE_MINIMAX_VOICES;
+
+type GeminiVoiceSeed = [name: string, gender: "female" | "male" | "neutral"];
+
+/** Gemini 3.8 Flash TTS studio voices (https://replicate.com/google/gemini-3.8-flash-tts). */
+const GEMINI_VOICE_SEEDS: GeminiVoiceSeed[] = [
+  ["Zephyr", "female"],
+  ["Puck", "male"],
+  ["Charon", "male"],
+  ["Kore", "female"],
+  ["Fenrir", "male"],
+  ["Leda", "female"],
+  ["Orus", "male"],
+  ["Aoede", "female"],
+  ["Callirrhoe", "female"],
+  ["Autonoe", "female"],
+  ["Enceladus", "male"],
+  ["Iapetus", "male"],
+  ["Umbriel", "male"],
+  ["Algieba", "male"],
+  ["Despina", "female"],
+  ["Erinome", "female"],
+  ["Algenib", "male"],
+  ["Rasalgethi", "male"],
+  ["Laomedeia", "female"],
+  ["Achernar", "female"],
+  ["Alnilam", "male"],
+  ["Schedar", "male"],
+  ["Gacrux", "female"],
+  ["Pulcherrima", "female"],
+  ["Achird", "male"],
+  ["Zubenelgenubi", "male"],
+  ["Vindemiatrix", "female"],
+  ["Sadachbia", "female"],
+  ["Sadaltager", "male"],
+  ["Sulafat", "female"],
+];
+
+export const REPLICATE_GEMINI_VOICES: VoiceDefinition[] = GEMINI_VOICE_SEEDS.map(
+  ([name, gender]) => ({
+    id: `replicate-gemini-${name.toLowerCase()}`,
+    provider: "replicate",
+    providerVoiceId: name,
+    name,
+    languageCode: "en",
+    languageName: "Multilingual",
+    gender,
+    tier: "premium",
+    supportsPreview: true,
+    supportsSpeed: false,
+  }),
+);
+
 type EdgeVoiceSeed = [shortName: string, name: string, gender: "female" | "male", languageName: string];
 
 const EDGE_VOICE_SEEDS: EdgeVoiceSeed[] = [
@@ -260,7 +367,13 @@ export const EDGE_VOICES: VoiceDefinition[] = EDGE_VOICE_SEEDS.map(
   },
 );
 
-export const ALL_VOICES: VoiceDefinition[] = [...EDGE_VOICES, ...REPLICATE_VOICES, ...OPENAI_VOICES];
+export const ALL_VOICES: VoiceDefinition[] = [
+  ...EDGE_VOICES,
+  ...REPLICATE_MINIMAX_VOICES,
+  ...REPLICATE_GEMINI_VOICES,
+  ...ELEVENLABS_VOICES,
+  ...OPENAI_VOICES,
+];
 
 export function findEdgeVoice(id: string): VoiceDefinition | null {
   return EDGE_VOICES.find((voice) => voice.id === id) ?? null;
@@ -270,8 +383,16 @@ export function findOpenAIVoice(id: string): VoiceDefinition | null {
   return OPENAI_VOICES.find((voice) => voice.id === id) ?? null;
 }
 
+export function findElevenLabsVoice(id: string): VoiceDefinition | null {
+  return ELEVENLABS_VOICES.find((voice) => voice.id === id) ?? null;
+}
+
 export function findReplicateVoice(id: string): VoiceDefinition | null {
-  return REPLICATE_VOICES.find((voice) => voice.id === id) ?? null;
+  return (
+    REPLICATE_MINIMAX_VOICES.find((voice) => voice.id === id) ??
+    REPLICATE_GEMINI_VOICES.find((voice) => voice.id === id) ??
+    null
+  );
 }
 
 export function findVoice(id: string): VoiceDefinition | null {
