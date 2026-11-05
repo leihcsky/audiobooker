@@ -80,8 +80,8 @@ export default function PrivacyPage() {
               produce standard voices.
             </>,
             <>
-              <strong>Replicate</strong> — when you choose a premium voice, the text is sent to Replicate, which
-              runs the MiniMax speech models.
+              <strong>ElevenLabs</strong> — when you choose a premium voice, the text is sent to ElevenLabs to
+              produce narration with their speech models (currently ElevenLabs v4).
             </>,
             <>
               <strong>Cloudflare</strong> — stores uploaded files, audio, and exports (Cloudflare R2).
