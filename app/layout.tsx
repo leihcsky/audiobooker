@@ -24,6 +24,7 @@ const newsreader = Newsreader({
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
+  applicationName: "Audiobooker",
   title: {
     default: "Audiobooker",
     template: "%s",

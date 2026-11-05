@@ -141,19 +141,25 @@ const FAQS = [
 ];
 
 function organizationJsonLd(siteUrl: string) {
+  const origin = new URL(siteUrl).origin;
+  const host = new URL(siteUrl).hostname.replace(/^www\./, "").toLowerCase();
   return [
     {
       "@context": "https://schema.org",
       "@type": "Organization",
       name: "Audiobooker",
-      url: siteUrl,
+      url: origin,
+      logo: `${origin}/brand/logo-mark-120.png`,
     },
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
       name: "Audiobooker",
-      url: siteUrl,
+      // Preference order for Google's site-name feature; domain last as a fallback.
+      alternateName: ["Audiobooker Studio", host],
+      url: `${origin}/`,
       description: DESCRIPTION,
+      publisher: { "@type": "Organization", name: "Audiobooker", url: origin },
     },
     {
       "@context": "https://schema.org",

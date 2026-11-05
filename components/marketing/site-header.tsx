@@ -1,18 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/account/account-menu";
 import { BrandLogo } from "@/components/brand/logo";
-import { MobileNav } from "@/components/nav/mobile-nav";
+import { MobileNav, type MobileNavLink } from "@/components/nav/mobile-nav";
+import { cn } from "@/lib/utils";
 
-export const MARKETING_NAV_LINKS = [
-  { href: "/", label: "Home", match: (path: string) => path === "/" },
-  { href: "/audiobook-maker", label: "Maker" },
-  { href: "/epub-to-audiobook", label: "EPUB" },
-  { href: "/pdf-to-audiobook", label: "PDF" },
-  { href: "/ebook-to-audiobook", label: "Ebook" },
-  { href: "/pricing", label: "Pricing" },
-] as const;
+export const MARKETING_NAV_LINKS: readonly MobileNavLink[] = [
+  { href: "/", label: "Home", match: (path) => path === "/" },
+  { href: "/audiobook-maker", label: "Maker", match: (path) => path === "/audiobook-maker" },
+  { href: "/epub-to-audiobook", label: "EPUB", match: (path) => path === "/epub-to-audiobook" },
+  { href: "/pdf-to-audiobook", label: "PDF", match: (path) => path === "/pdf-to-audiobook" },
+  { href: "/ebook-to-audiobook", label: "Ebook", match: (path) => path === "/ebook-to-audiobook" },
+  { href: "/pricing", label: "Pricing", match: (path) => path === "/pricing" },
+];
 
 type SiteHeaderProps = {
   signedIn: boolean;
@@ -20,6 +22,8 @@ type SiteHeaderProps = {
 };
 
 export function SiteHeader({ signedIn, email }: SiteHeaderProps) {
+  const pathname = usePathname();
+
   return (
     <header
       className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
@@ -33,12 +37,23 @@ export function SiteHeader({ signedIn, email }: SiteHeaderProps) {
           />
         </Link>
 
-        <nav className="hidden items-center gap-4 text-sm md:flex" aria-label="Primary">
-          {MARKETING_NAV_LINKS.map((item) => (
-            <Link key={item.href} href={item.href} className="hover:underline">
-              {item.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-1 text-sm md:flex" aria-label="Primary">
+          {MARKETING_NAV_LINKS.map((item) => {
+            const active = item.match?.(pathname) ?? pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-3 py-1.5 transition-colors hover:bg-muted",
+                  active ? "bg-muted font-medium text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
