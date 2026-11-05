@@ -121,14 +121,14 @@ function PricingFaq() {
   return (
     <section className="mt-16">
       <h2 className="font-serif text-3xl tracking-tight">Pricing questions</h2>
-      <dl className="mt-6 space-y-6">
+      <div className="mt-6 space-y-6">
         {pricingFaq().map((item) => (
           <div key={item.question}>
-            <dt className="font-medium">{item.question}</dt>
-            <dd className="mt-1 text-muted-foreground">{item.answer}</dd>
+            <h3 className="font-medium">{item.question}</h3>
+            <p className="mt-1 text-muted-foreground">{item.answer}</p>
           </div>
         ))}
-      </dl>
+      </div>
     </section>
   );
 }

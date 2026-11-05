@@ -29,6 +29,8 @@ export type SeoToolConfig = {
   eyebrow?: string;
   h1: string;
   intro: string;
+  /** H2 above the interactive converter, so crawlers see the tool as a clear page section. */
+  toolHeading: string;
   supportedFormats: ToolFormat[];
   howToTitle: string;
   howToSteps: string[];
@@ -90,6 +92,7 @@ export const SEO_TOOLS: SeoToolConfig[] = [
     h1: "Audiobook Maker: Turn Your Book into an Audiobook",
     intro:
       "Upload an EPUB, PDF, or TXT file and this audiobook maker finds the chapters, narrates them with natural AI voices, and packages the result as chapter MP3s or a single M4B audiobook. Start free, no account needed.",
+    toolHeading: "Make an audiobook from your file",
     supportedFormats: ["EPUB", "PDF", "TXT"],
     howToTitle: "How to make an audiobook online",
     howToSteps: [
@@ -224,6 +227,7 @@ export const SEO_TOOLS: SeoToolConfig[] = [
     h1: "EPUB to Audiobook: Convert Your EPUB to MP3 or M4B",
     intro:
       "Upload a DRM-free EPUB and get an audiobook that follows the book itself: chapters from its table of contents, title and author from its metadata, and its cover art. Narrate it with natural AI voices, then download chapter MP3s or a single M4B.",
+    toolHeading: "Convert your EPUB to an audiobook",
     supportedFormats: ["EPUB"],
     howToTitle: "How to convert EPUB to audiobook",
     howToSteps: [
@@ -334,6 +338,7 @@ export const SEO_TOOLS: SeoToolConfig[] = [
     h1: "PDF to Audiobook: Turn a PDF into Narrated Audio",
     intro:
       "Upload a PDF ebook, textbook, report, or manuscript. Audiobooker extracts the text, starts a new chapter at headings such as “Chapter 1”, and narrates it with natural AI voices. Listen in your browser, or download chapter MP3s or a single M4B.",
+    toolHeading: "Convert your PDF to an audiobook",
     supportedFormats: ["PDF"],
     howToTitle: "How to convert a PDF to an audiobook",
     howToSteps: [
@@ -451,6 +456,7 @@ export const SEO_TOOLS: SeoToolConfig[] = [
     h1: "Ebook to Audiobook: Listen to Your EPUB, PDF, or TXT Ebook",
     intro:
       "Have an ebook you'd rather listen to? Upload it as an EPUB, PDF, or TXT file and Audiobooker narrates it chapter by chapter with natural AI voices. Not sure which file to use, or whether a store-bought ebook will work? The format guide below explains.",
+    toolHeading: "Turn your ebook into an audiobook",
     supportedFormats: ["EPUB", "PDF", "TXT"],
     howToTitle: "How to turn an ebook into an audiobook",
     howToSteps: [

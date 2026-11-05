@@ -67,7 +67,7 @@ export function SiteFooter() {
 function FooterColumn({ title, links }: { title: string; links: readonly FooterLink[] }) {
   return (
     <nav aria-label={title}>
-      <h2 className="font-medium text-foreground">{title}</h2>
+      <p className="font-medium text-foreground">{title}</p>
       <ul className="mt-3 space-y-2.5">
         {links.map((link) => (
           <li key={link.href}>

@@ -40,9 +40,14 @@ export function SeoToolPage({ config, signedIn }: SeoToolPageProps) {
       <h1 className="mt-3 font-serif text-4xl tracking-tight md:text-5xl">{config.h1}</h1>
       <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">{config.intro}</p>
 
-      <div className="mt-10">
-        <AudiobookTool config={config} signedIn={signedIn} />
-      </div>
+      <section className="mt-10" aria-labelledby="tool-heading">
+        <h2 id="tool-heading" className="font-serif text-2xl tracking-tight">
+          {config.toolHeading}
+        </h2>
+        <div className="mt-4">
+          <AudiobookTool config={config} signedIn={signedIn} />
+        </div>
+      </section>
 
       <SampleShowcase samples={samplesForFormats(config.supportedFormats)} showAllLink />
 
@@ -62,14 +67,14 @@ export function SeoToolPage({ config, signedIn }: SeoToolPageProps) {
       <FreeAllowance />
       <section className="mt-12">
         <h2 className="font-serif text-2xl">Frequently asked questions</h2>
-        <dl className="mt-4 space-y-6">
+        <div className="mt-4 space-y-6">
           {config.faq.map((item) => (
             <div key={item.question}>
-              <dt className="font-medium">{item.question}</dt>
-              <dd className="mt-1 text-muted-foreground">{item.answer}</dd>
+              <h3 className="font-medium">{item.question}</h3>
+              <p className="mt-1 text-muted-foreground">{item.answer}</p>
             </div>
           ))}
-        </dl>
+        </div>
       </section>
 
       <section className="mt-12">

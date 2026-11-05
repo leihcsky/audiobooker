@@ -311,14 +311,14 @@ export default async function HomePage() {
 
       <section className="mt-24">
         <h2 className="font-serif text-3xl tracking-tight">Questions about Audiobooker</h2>
-        <dl className="mt-6 space-y-6">
+        <div className="mt-6 space-y-6">
           {FAQS.map((item) => (
             <div key={item.question}>
-              <dt className="font-medium">{item.question}</dt>
-              <dd className="mt-1 leading-7 text-muted-foreground">{item.answer}</dd>
+              <h3 className="font-medium">{item.question}</h3>
+              <p className="mt-1 leading-7 text-muted-foreground">{item.answer}</p>
             </div>
           ))}
-        </dl>
+        </div>
       </section>
     </main>
   );

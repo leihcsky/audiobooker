@@ -14,8 +14,9 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
   return <div className={cn("flex flex-col gap-1.5 p-6", className)} {...props} />;
 }
 
-export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("font-serif text-xl font-semibold tracking-tight", className)} {...props} />;
+/** UI label, not a document heading — keeps marketing/SEO outlines free of chrome h2/h3. */
+export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <p className={cn("font-serif text-xl font-semibold tracking-tight", className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {

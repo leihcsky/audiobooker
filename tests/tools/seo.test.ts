@@ -76,12 +76,14 @@ describe("SEO tools", () => {
 
   it("keeps page copy distinct across the tool cluster", () => {
     const headings = SEO_TOOLS.flatMap((tool) => [
+      tool.toolHeading,
       tool.howToTitle,
       ...(tool.sections ?? []).map((section) => section.heading),
     ]);
     const questions = SEO_TOOLS.flatMap((tool) => tool.faq.map((item) => item.question));
     expect(new Set(SEO_TOOLS.map((tool) => tool.title)).size).toBe(SEO_TOOLS.length);
     expect(new Set(SEO_TOOLS.map((tool) => tool.description)).size).toBe(SEO_TOOLS.length);
+    expect(new Set(SEO_TOOLS.map((tool) => tool.toolHeading)).size).toBe(SEO_TOOLS.length);
     expect(new Set(headings).size).toBe(headings.length);
     expect(new Set(questions).size).toBe(questions.length);
   });
