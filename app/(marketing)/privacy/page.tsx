@@ -81,7 +81,7 @@ export default function PrivacyPage() {
             </>,
             <>
               <strong>ElevenLabs</strong> — when you choose a premium voice, the text is sent to ElevenLabs to
-              produce narration with their speech models (currently ElevenLabs v4).
+              produce narration with their Eleven v4 speech model.
             </>,
             <>
               <strong>Cloudflare</strong> — stores uploaded files, audio, and exports (Cloudflare R2).

@@ -76,8 +76,8 @@ export default function AboutPage() {
       <LegalSection title="Who we are">
         <p>
           Audiobooker is built and run by an independent developer. Standard voices are produced with
-          Microsoft&apos;s speech service and premium voices with ElevenLabs (v4). Payments are handled by Waffo,
-          our merchant of record.
+          Microsoft&apos;s speech service and premium voices with ElevenLabs&apos; Eleven v4 model. Payments are
+          handled by Waffo, our merchant of record.
         </p>
       </LegalSection>
 
