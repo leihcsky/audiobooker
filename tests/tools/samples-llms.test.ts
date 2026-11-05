@@ -24,6 +24,7 @@ const FIXTURE: AudiobookSample = {
   language: "en",
   voice: "Ava",
   audioSrc: "/samples/pride-and-prejudice.mp3",
+  coverSrc: "/samples/covers/pride-and-prejudice.jpg",
   clipLabel: "Chapter 1, opening",
   clipSeconds: 95,
   stats: { words: 122_000, chapters: 61, generationMinutes: 42, finishedSeconds: 49_000, exportMegabytes: 410 },
@@ -36,7 +37,9 @@ describe("audiobook samples", () => {
       expect(ids.has(sample.id)).toBe(false);
       ids.add(sample.id);
       expect(sample.audioSrc).toMatch(/^\/samples\/[a-z0-9-]+\.mp3$/);
+      expect(sample.coverSrc).toMatch(/^\/samples\/covers\/[a-z0-9-]+\.jpe?g$/);
       expect(existsSync(join(process.cwd(), "public", sample.audioSrc))).toBe(true);
+      expect(existsSync(join(process.cwd(), "public", sample.coverSrc))).toBe(true);
       expect(sample.stats.words).toBeGreaterThan(0);
       expect(sample.stats.finishedSeconds).toBeGreaterThan(0);
     }

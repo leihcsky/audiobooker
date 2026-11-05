@@ -29,11 +29,14 @@ export function WorkspacePreview() {
     >
       <div aria-hidden="true">
         <div className="flex items-start gap-4">
-          <div className="flex h-20 w-14 shrink-0 items-end rounded-md bg-gradient-to-br from-primary/80 to-primary/30 p-1.5">
-            <span className="font-serif text-[9px] leading-tight text-primary-foreground">
-              The Silent Harbor
-            </span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- static marketing asset */}
+          <img
+            src="/marketing/silent-harbor-cover.jpg"
+            alt=""
+            width={112}
+            height={160}
+            className="h-28 w-20 shrink-0 rounded-md border border-border object-cover shadow-sm"
+          />
           <div className="min-w-0">
             <p className="font-serif text-lg font-semibold leading-tight">The Silent Harbor</p>
             <p className="text-sm">by M. Ellison</p>

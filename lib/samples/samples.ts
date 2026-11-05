@@ -25,6 +25,8 @@ export type AudiobookSample = {
   voice: string;
   /** Short clip served from public/samples/, e.g. "/samples/pride-and-prejudice.mp3". */
   audioSrc: string;
+  /** Cover art under public/samples/covers/, e.g. "/samples/covers/pride-and-prejudice.jpg". */
+  coverSrc: string;
   clipLabel: string;
   clipSeconds: number;
   stats: SampleStats;
@@ -44,6 +46,7 @@ export const AUDIOBOOK_SAMPLES: readonly AudiobookSample[] = [
     language: "en",
     voice: "Ava, English (US), 1.0x",
     audioSrc: "/samples/pride-and-prejudice.mp3",
+    coverSrc: "/samples/covers/pride-and-prejudice.jpg",
     clipLabel: "Chapter 1, from 0:30",
     clipSeconds: 90,
     stats: { words: 122_027, chapters: 61, generationMinutes: 38, finishedSeconds: 41_822, exportMegabytes: 256.6 },
@@ -60,6 +63,7 @@ export const AUDIOBOOK_SAMPLES: readonly AudiobookSample[] = [
     language: "en",
     voice: "Ava, English (US), 1.0x",
     audioSrc: "/samples/the-art-of-war.mp3",
+    coverSrc: "/samples/covers/the-art-of-war.jpg",
     clipLabel: "Chapter I, Laying Plans, from 0:30",
     clipSeconds: 90,
     stats: { words: 10_445, chapters: 13, generationMinutes: 3.8, finishedSeconds: 3_681, exportMegabytes: 22.6 },
@@ -76,6 +80,7 @@ export const AUDIOBOOK_SAMPLES: readonly AudiobookSample[] = [
     language: "en",
     voice: "Andrew, English (US), 1.0x",
     audioSrc: "/samples/the-adventures-of-sherlock-holmes.mp3",
+    coverSrc: "/samples/covers/the-adventures-of-sherlock-holmes.jpg",
     clipLabel: "Chapter I, A Scandal in Bohemia, from 0:30",
     clipSeconds: 90,
     stats: { words: 104_318, chapters: 12, generationMinutes: 52.1, finishedSeconds: 33_156, exportMegabytes: 207.7 },
@@ -117,6 +122,13 @@ export function sampleJsonLd(sample: AudiobookSample, siteUrl: string): Record<s
     encodingFormat: "audio/mpeg",
     duration: isoDuration(sample.clipSeconds),
     inLanguage: sample.language,
-    isBasedOn: { "@type": "Book", name: sample.title, author: sample.author, url: sample.sourceUrl },
+    thumbnailUrl: `${siteUrl}${sample.coverSrc}`,
+    isBasedOn: {
+      "@type": "Book",
+      name: sample.title,
+      author: sample.author,
+      url: sample.sourceUrl,
+      image: `${siteUrl}${sample.coverSrc}`,
+    },
   };
 }

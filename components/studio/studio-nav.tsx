@@ -2,21 +2,30 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MobileNav, type MobileNavLink } from "@/components/nav/mobile-nav";
 import { cn } from "@/lib/utils";
 
-const LINKS = [
+export const STUDIO_NAV_LINKS: readonly MobileNavLink[] = [
   { href: "/", label: "Home", match: () => false },
-  { href: "/studio", label: "Dashboard", match: (path: string) => path === "/studio" },
-  { href: "/studio/projects", label: "Projects", match: (path: string) => path.startsWith("/studio/projects") },
-  { href: "/studio/billing", label: "Billing", match: (path: string) => path.startsWith("/studio/billing") },
+  { href: "/studio", label: "Dashboard", match: (path) => path === "/studio" },
+  {
+    href: "/studio/projects",
+    label: "Projects",
+    match: (path) => path.startsWith("/studio/projects"),
+  },
+  {
+    href: "/studio/billing",
+    label: "Billing",
+    match: (path) => path.startsWith("/studio/billing"),
+  },
 ];
 
 export function StudioNav() {
   const pathname = usePathname();
   return (
-    <nav className="flex items-center gap-1 text-sm">
-      {LINKS.map((link) => {
-        const active = link.match(pathname);
+    <nav className="hidden items-center gap-1 text-sm md:flex" aria-label="Studio">
+      {STUDIO_NAV_LINKS.map((link) => {
+        const active = link.match?.(pathname) ?? false;
         return (
           <Link
             key={link.href}
@@ -33,4 +42,8 @@ export function StudioNav() {
       })}
     </nav>
   );
+}
+
+export function StudioMobileNav() {
+  return <MobileNav links={STUDIO_NAV_LINKS} />;
 }
