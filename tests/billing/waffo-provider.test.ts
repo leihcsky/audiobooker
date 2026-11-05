@@ -5,6 +5,11 @@ const verifyWebhook = vi.hoisted(() => vi.fn());
 vi.mock("@waffo/pancake-ts", () => ({
   verifyWebhook,
   WaffoPancake: vi.fn(),
+  TaxCategory: {
+    DigitalGoods: "digital_goods",
+    SaaS: "saas",
+    Software: "software",
+  },
 }));
 
 import { BillingSignatureError } from "@/lib/billing/provider";

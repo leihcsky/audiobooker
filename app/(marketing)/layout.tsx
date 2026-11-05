@@ -6,6 +6,7 @@ import { BrandLogo } from "@/components/brand/logo";
 import { SiteFooter } from "@/components/marketing/site-footer";
 
 const NAV_LINKS = [
+  { href: "/", label: "Home" },
   { href: "/audiobook-maker", label: "Maker" },
   { href: "/epub-to-audiobook", label: "EPUB" },
   { href: "/pdf-to-audiobook", label: "PDF" },
@@ -20,7 +21,7 @@ export default async function MarketingLayout({ children }: { children: ReactNod
     <div className="flex min-h-full flex-col">
       <header className="border-b border-border">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-5">
-          <Link href="/" className="text-foreground">
+          <Link href="/" className="inline-flex items-center text-foreground">
             <BrandLogo />
           </Link>
           <nav className="hidden items-center gap-4 text-sm md:flex">

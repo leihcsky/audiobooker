@@ -59,12 +59,24 @@ export type BillingWebhookEvent = {
   ignoreReason: string | null;
 };
 
+export type SubscriptionLifecycleResult = {
+  /** Provider order / subscription id. */
+  subscriptionId: string;
+  /** Normalized: canceling → ends at period end; canceled → ended; active → renewing. */
+  status: "active" | "canceling" | "canceled";
+};
+
 export interface BillingProvider {
   readonly id: string;
   isConfigured(): boolean;
   productIdFor(item: BillingItemId, creatorPrice: boolean): string | null;
   createCheckout(input: CheckoutRequest): Promise<CheckoutSession>;
   createCustomerPortal(input: { userId: string }): Promise<{ url: string }>;
+  cancelSubscription(input: { subscriptionId: string }): Promise<SubscriptionLifecycleResult>;
+  reactivateSubscription(input: {
+    userId: string;
+    subscriptionId: string;
+  }): Promise<SubscriptionLifecycleResult>;
   /** Verifies the signature over the raw body; throws `BillingSignatureError` when invalid. */
   parseWebhook(rawBody: string, signature: string | null): BillingWebhookEvent;
 }

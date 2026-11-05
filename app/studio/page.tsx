@@ -77,7 +77,14 @@ export default async function StudioDashboardPage() {
                 <Card key={project.id}>
                   <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
                     <div className="min-w-0">
-                      <CardTitle className="truncate">{project.title}</CardTitle>
+                      <CardTitle className="truncate">
+                        <Link
+                          href={`/studio/projects/${project.id}`}
+                          className="hover:underline"
+                        >
+                          {project.title}
+                        </Link>
+                      </CardTitle>
                       {project.author ? (
                         <p className="mt-1 text-sm text-muted-foreground">by {project.author}</p>
                       ) : null}

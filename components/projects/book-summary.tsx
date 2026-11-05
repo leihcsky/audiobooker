@@ -7,21 +7,17 @@ type BookSummaryProps = {
   author: string | null;
   coverUrl: string | null;
   stats: BookStats;
-  /** Studio already shows the title as the page heading. */
-  showTitle?: boolean;
 };
 
-export function BookSummary({ title, author, coverUrl, stats, showTitle = true }: BookSummaryProps) {
+export function BookSummary({ title, author, coverUrl, stats }: BookSummaryProps) {
   return (
     <div className="flex items-start gap-5">
       <BookCover title={title} coverUrl={coverUrl} />
       <div className="min-w-0 flex-1 space-y-3">
-        {showTitle ? (
-          <div>
-            <h2 className="font-serif text-2xl leading-tight break-words">{title}</h2>
-            {author ? <p className="mt-1 text-sm text-muted-foreground">by {author}</p> : null}
-          </div>
-        ) : null}
+        <div>
+          <h2 className="font-serif text-2xl leading-tight break-words">{title}</h2>
+          {author ? <p className="mt-1 text-sm text-muted-foreground">by {author}</p> : null}
+        </div>
         <ul className="flex flex-wrap gap-2">
           <StatPill value={stats.chapters.toLocaleString("en-US")} label={stats.chapters === 1 ? "chapter" : "chapters"} />
           <StatPill value={stats.words.toLocaleString("en-US")} label="words" />

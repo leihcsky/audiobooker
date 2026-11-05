@@ -40,16 +40,30 @@ export type ReturnedOrder = {
   premiumSeconds: number;
 };
 
+export type BillingPayment = {
+  id: string;
+  kind: "SUBSCRIPTION" | "MINUTE_PACK" | "PAY_PER_BOOK";
+  itemId: string;
+  label: string;
+  /** Extra line under the label (e.g. Pay-per-Book project title). */
+  detail: string | null;
+  status: "PAID" | "REFUNDED";
+  amountUsd: number;
+  paidAt: string | null;
+  createdAt: string;
+};
+
 export type BillingOverview = {
   usage: UsageSummary;
   subscription: {
     status: SubscriptionStatus;
     cancelAtPeriodEnd: boolean;
     currentPeriodEnd: string | null;
-    /** Managed in the payment provider's portal (not a manual/test grant). */
+    /** Managed via in-app cancel/resume (not a manual/test grant). */
     managedByProvider: boolean;
   } | null;
   hasPaidOrders: boolean;
+  payments: BillingPayment[];
   packs: BillingPack[];
   activity: BillingActivity[];
   returnedOrder: ReturnedOrder | null;
@@ -76,6 +90,17 @@ function activityLabel(type: CreditEntryType, metadata: unknown): string {
   }
 }
 
+function paymentLabel(kind: BillingPayment["kind"], itemId: string): string {
+  if (kind === "SUBSCRIPTION") {
+    return "Creator subscription";
+  }
+  if (kind === "PAY_PER_BOOK") {
+    return "Pay-per-book";
+  }
+  const pack = MINUTE_PACKS.find((candidate) => candidate.id === itemId);
+  return pack ? `${pack.name} pack` : "Minute pack";
+}
+
 async function findReturnedOrder(userId: string, orderId?: string): Promise<ReturnedOrder | null> {
   if (!orderId || !UUID.test(orderId)) {
     return null;
@@ -89,7 +114,7 @@ async function findReturnedOrder(userId: string, orderId?: string): Promise<Retu
 
 export async function getBillingOverview(userId: string, orderId?: string): Promise<BillingOverview> {
   const usage = await getUsageSummary(userId);
-  const [subscription, paidOrders, entries, returnedOrder] = await Promise.all([
+  const [subscription, paidOrders, payments, entries, returnedOrder] = await Promise.all([
     usage.plan.id === "free"
       ? null
       : prisma.subscription.findFirst({
@@ -97,6 +122,27 @@ export async function getBillingOverview(userId: string, orderId?: string): Prom
           orderBy: { currentPeriodEnd: "desc" },
         }),
     prisma.billingOrder.count({ where: { userId, status: { in: ["PAID", "REFUNDED"] } } }),
+    prisma.billingOrder.findMany({
+      where: { userId, status: { in: ["PAID", "REFUNDED"] } },
+      orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
+      take: 20,
+      select: {
+        id: true,
+        kind: true,
+        itemId: true,
+        status: true,
+        amountUsd: true,
+        paidAt: true,
+        createdAt: true,
+        payPerBookOrder: {
+          select: {
+            project: { select: { title: true } },
+            billableMinutes: true,
+            status: true,
+          },
+        },
+      },
+    }),
     prisma.creditLedger.findMany({
       where: { userId, type: { in: ACTIVITY_TYPES } },
       orderBy: { createdAt: "desc" },
@@ -117,6 +163,24 @@ export async function getBillingOverview(userId: string, orderId?: string): Prom
         }
       : null,
     hasPaidOrders: paidOrders > 0,
+    payments: payments.map((order) => {
+      const ppb = order.payPerBookOrder;
+      let detail: string | null = null;
+      if (order.kind === "PAY_PER_BOOK" && ppb) {
+        detail = `${ppb.project.title} · ${ppb.billableMinutes} min`;
+      }
+      return {
+        id: order.id,
+        kind: order.kind,
+        itemId: order.itemId,
+        label: paymentLabel(order.kind, order.itemId),
+        detail,
+        status: order.status === "REFUNDED" ? "REFUNDED" : "PAID",
+        amountUsd: Number(order.amountUsd),
+        paidAt: order.paidAt?.toISOString() ?? null,
+        createdAt: order.createdAt.toISOString(),
+      };
+    }),
     packs: MINUTE_PACKS.map((pack) => ({
       id: pack.id,
       name: pack.name,

@@ -22,10 +22,10 @@ export default async function StudioLayout({
   return (
     <div className="min-h-full">
       <header className="border-b border-border bg-card/80">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-5">
           <div className="flex items-center gap-8">
-            <Link href="/" className="text-foreground" aria-label="Audiobooker home">
-              <BrandLogo markClassName="size-7 shrink-0" wordmarkClassName="font-serif text-xl tracking-tight" />
+            <Link href="/" className="inline-flex items-center text-foreground" aria-label="Audiobooker home">
+              <BrandLogo />
             </Link>
             <StudioNav />
           </div>

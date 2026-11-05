@@ -31,7 +31,7 @@ type ApiErrorPayload = { error?: { code?: string; message?: string } };
 
 type ProjectWorkspaceProps = {
   projectId: string;
-  book: { title: string; hasCover: boolean; updatedAt: string };
+  book: { title: string; author: string | null; hasCover: boolean; updatedAt: string };
   chapters: ChapterSummary[];
   progress: ProjectProgress;
   generation: ProjectGenerationSummary | null;
@@ -87,6 +87,8 @@ export function ProjectWorkspace({
   );
   const [speed, setSpeed] = useState(chapters[0]?.selectedSpeed || DEFAULT_SPEECH_SPEED);
   const [pending, setPending] = useState<string | null>(null);
+  /** Keeps the generate button busy across the gap between request end and server narrating state. */
+  const [holdNarrating, setHoldNarrating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmRematch, setConfirmRematch] = useState(false);
@@ -118,7 +120,8 @@ export function ProjectWorkspace({
   const generationActive =
     generation?.job.status === "QUEUED" || generation?.job.status === "PROCESSING";
   const chapterGenerating = chapters.some((chapter) => chapter.status === "GENERATING");
-  const narrating = generationActive || chapterGenerating;
+  const serverNarrating = generationActive || chapterGenerating;
+  const narrating = serverNarrating || holdNarrating;
   const busy = pending !== null || narrating;
   const preview = useVoicePreview(voiceId, effectiveSpeed);
   const narration = planProjectNarration(displayChapters, voiceId, effectiveSpeed);
@@ -160,6 +163,20 @@ export function ProjectWorkspace({
     premiumShort;
 
   useEffect(() => {
+    if (serverNarrating) {
+      setHoldNarrating(false);
+    }
+  }, [serverNarrating]);
+
+  useEffect(() => {
+    if (!holdNarrating) {
+      return;
+    }
+    const timer = window.setTimeout(() => setHoldNarrating(false), 20_000);
+    return () => window.clearTimeout(timer);
+  }, [holdNarrating]);
+
+  useEffect(() => {
     if (!generationActive && !chapterGenerating) {
       return;
     }
@@ -186,7 +203,7 @@ export function ProjectWorkspace({
         setError(userFacingTtsError(payload?.error?.code, payload?.error?.message));
         return false;
       }
-      router.refresh();
+      await router.refresh();
       return true;
     } catch {
       setError("Something went wrong. Please try again.");
@@ -204,12 +221,15 @@ export function ProjectWorkspace({
     if (narration.overwritesAudio) {
       body.chapterIds = toNarrate.map((chapter) => chapter.id);
     }
+    setHoldNarrating(true);
     const ok = await send("generate", `/api/projects/${projectId}/generate`, {
       method: "POST",
       body: JSON.stringify(body),
     });
     if (ok) {
       setConfirmRematch(false);
+    } else {
+      setHoldNarrating(false);
     }
   }
 
@@ -225,7 +245,11 @@ export function ProjectWorkspace({
   }
 
   function onStop() {
-    void send("stop", `/api/projects/${projectId}/generate`, { method: "DELETE" });
+    void send("stop", `/api/projects/${projectId}/generate`, { method: "DELETE" }).then((ok) => {
+      if (ok) {
+        setHoldNarrating(false);
+      }
+    });
   }
 
   function persistIncluded(nextIds: string[]) {
@@ -289,7 +313,7 @@ export function ProjectWorkspace({
     <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">
-          <BookSummary title={book.title} author={null} coverUrl={coverUrl} stats={stats.book} showTitle={false} />
+          <BookSummary title={book.title} author={book.author} coverUrl={coverUrl} stats={stats.book} />
         </CardContent>
       </Card>
 
@@ -412,7 +436,7 @@ export function ProjectWorkspace({
           <div className="flex flex-wrap items-center gap-3">
             <VoicePreviewButton preview={preview} disabled={!voiceId || pending !== null} />
             <Button onClick={onGenerate} disabled={generateDisabled}>
-              {pending === "generate" || generationActive
+              {pending === "generate" || narrating
                 ? "Generating..."
                 : toNarrate.length === 0
                   ? "Generate audiobook"
@@ -420,7 +444,7 @@ export function ProjectWorkspace({
                     ? `Regenerate ${toNarrate.length} chapter${toNarrate.length === 1 ? "" : "s"}`
                     : `Generate ${toNarrate.length} chapter${toNarrate.length === 1 ? "" : "s"}`}
             </Button>
-            {generationActive ? (
+            {narrating ? (
               <Button variant="outline" onClick={onStop} disabled={pending !== null}>
                 {pending === "stop" ? "Stopping..." : "Stop"}
               </Button>

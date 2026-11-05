@@ -110,7 +110,12 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
       {detail.chapters.length > 0 ? (
         <ProjectWorkspace
           projectId={project.id}
-          book={{ title: project.title, hasCover: project.hasCover, updatedAt: project.updatedAt }}
+          book={{
+            title: project.title,
+            author: project.author,
+            hasCover: project.hasCover,
+            updatedAt: project.updatedAt,
+          }}
           chapters={detail.chapters}
           progress={detail.progress}
           generation={detail.generation}

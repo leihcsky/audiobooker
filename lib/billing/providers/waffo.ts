@@ -13,6 +13,7 @@ import {
   type BillingProvider,
   type BillingWebhookEvent,
   type CheckoutRequest,
+  type SubscriptionLifecycleResult,
 } from "@/lib/billing/provider";
 
 type WaffoEnvironment = "test" | "prod";
@@ -64,7 +65,7 @@ function getClient(): WaffoPancake {
   if (!merchantId || !privateKey) {
     throw new Error("Waffo credentials are not configured.");
   }
-  client ??= new WaffoPancake({ merchantId, privateKey });
+  client ??= new WaffoPancake({ merchantId, privateKey, environment: environment() });
   return client;
 }
 
@@ -90,6 +91,12 @@ function parseAmount(value: string | undefined): number | null {
   }
   const amount = Number.parseFloat(value);
   return Number.isFinite(amount) ? amount : null;
+}
+
+function normalizeLifecycle(subscriptionId: string, status: string): SubscriptionLifecycleResult {
+  const normalized =
+    status === "canceling" ? "canceling" : status === "canceled" ? "canceled" : "active";
+  return { subscriptionId, status: normalized };
 }
 
 function refundFraction(data: WebhookEventData): number | null {
@@ -174,6 +181,23 @@ export const waffoBillingProvider: BillingProvider = {
       buyerIdentity: userId,
     });
     return { url: result.portalUrl };
+  },
+
+  async cancelSubscription({ subscriptionId }) {
+    const result = await getClient().orders.cancelSubscription({ orderId: subscriptionId });
+    return normalizeLifecycle(subscriptionId, result.status);
+  },
+
+  async reactivateSubscription({ userId, subscriptionId }) {
+    const client = getClient();
+    const { token } = await client.auth.issueSessionToken({
+      storeId: storeId(),
+      buyerIdentity: userId,
+    });
+    const result = await client
+      .customer(token, { environment: environment() })
+      .reactivateSubscription({ orderId: subscriptionId });
+    return normalizeLifecycle(subscriptionId, result.status);
   },
 
   parseWebhook(rawBody, signature) {

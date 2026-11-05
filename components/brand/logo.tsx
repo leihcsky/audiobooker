@@ -32,7 +32,7 @@ type BrandLogoProps = {
 export function BrandLogo({
   className,
   markClassName = "size-8 shrink-0",
-  wordmarkClassName = "font-serif text-2xl tracking-tight",
+  wordmarkClassName = "font-serif text-2xl leading-none tracking-tight translate-y-px",
 }: BrandLogoProps) {
   return (
     <span className={`inline-flex items-center gap-2.5 ${className ?? ""}`}>

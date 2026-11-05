@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 import { CheckoutReturn } from "@/components/billing/checkout-return";
+import { SubscriptionPayments } from "@/components/billing/subscription-payments";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
 import { getBillingOverview, type BillingOverview, type BillingPack } from "@/lib/billing/billing-overview";
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   title: "Billing — Audiobooker",
 };
 
-const PORTAL_LINK_CLASS =
+const MANAGE_LINK_CLASS =
   "inline-flex h-10 w-full items-center justify-center rounded-md border border-border px-4 text-sm font-medium hover:bg-muted";
 
 type BillingPageProps = {
@@ -39,7 +40,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
       {overview.returnedOrder ? <CheckoutReturn order={overview.returnedOrder} /> : null}
       {portal === "unavailable" ? (
         <p role="alert" className="rounded-lg border border-destructive/30 px-4 py-3 text-sm text-destructive">
-          Subscription management couldn&apos;t be opened right now. Please try again in a few minutes.
+          Payment method settings couldn&apos;t be opened right now. Please try again in a few minutes.
         </p>
       ) : null}
 
@@ -47,6 +48,8 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
         <PlanCard overview={overview} />
         <MinutesCard overview={overview} />
       </div>
+
+      <SubscriptionPayments overview={overview} />
 
       <PayPerBookCard />
 
@@ -121,8 +124,8 @@ function PlanCard({ overview }: { overview: BillingOverview }) {
               </p>
             </>
           ) : subscription?.managedByProvider ? (
-            <a href="/api/billing/portal" target="_blank" rel="noopener noreferrer" className={PORTAL_LINK_CLASS}>
-              {pastDue ? "Update payment method" : "Manage subscription"}
+            <a href="#subscription-payments" className={MANAGE_LINK_CLASS}>
+              {pastDue ? "Fix payment & manage" : "Manage subscription"}
             </a>
           ) : null}
         </div>
@@ -249,37 +252,35 @@ function PackCard({ pack, creator }: { pack: BillingPack; creator: boolean }) {
 }
 
 function Activity({ overview }: { overview: BillingOverview }) {
-  if (overview.activity.length === 0 && !overview.hasPaidOrders) {
+  if (overview.activity.length === 0) {
     return null;
   }
   return (
     <section>
       <div className="mb-3 flex items-baseline justify-between gap-4">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Recent activity</h2>
-        {overview.hasPaidOrders ? (
-          <a href="/api/billing/portal" target="_blank" rel="noopener noreferrer" className="text-sm hover:underline">
-            Receipts
-          </a>
-        ) : null}
+        <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Minute activity
+        </h2>
+        <a href="#subscription-payments" className="text-sm hover:underline">
+          Payments
+        </a>
       </div>
-      {overview.activity.length > 0 ? (
-        <Card>
-          <ul className="divide-y divide-border text-sm">
-            {overview.activity.map((entry) => (
-              <li key={entry.id} className="flex items-center justify-between gap-4 px-5 py-3">
-                <span>
-                  {entry.label}
-                  <span className="ml-3 text-muted-foreground">{formatDate(entry.createdAt)}</span>
-                </span>
-                <span className={cn("font-medium tabular-nums", entry.seconds < 0 && "text-muted-foreground")}>
-                  {entry.seconds < 0 ? "−" : "+"}
-                  {remainingMinutes(Math.abs(entry.seconds)).toLocaleString("en-US")} min
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
+      <Card>
+        <ul className="divide-y divide-border text-sm">
+          {overview.activity.map((entry) => (
+            <li key={entry.id} className="flex items-center justify-between gap-4 px-5 py-3">
+              <span>
+                {entry.label}
+                <span className="ml-3 text-muted-foreground">{formatDate(entry.createdAt)}</span>
+              </span>
+              <span className={cn("font-medium tabular-nums", entry.seconds < 0 && "text-muted-foreground")}>
+                {entry.seconds < 0 ? "−" : "+"}
+                {remainingMinutes(Math.abs(entry.seconds)).toLocaleString("en-US")} min
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Card>
     </section>
   );
 }

@@ -27,6 +27,8 @@ const provider = vi.hoisted(() => ({
   productIdFor: vi.fn((item: string, creatorPrice: boolean) => `PROD_${item}${creatorPrice ? "_creator" : ""}`),
   createCheckout: vi.fn(async () => ({ sessionId: "SES_1", checkoutUrl: "https://checkout.test/x#token=t" })),
   createCustomerPortal: vi.fn(),
+  cancelSubscription: vi.fn(),
+  reactivateSubscription: vi.fn(),
   parseWebhook: vi.fn(),
 }));
 
