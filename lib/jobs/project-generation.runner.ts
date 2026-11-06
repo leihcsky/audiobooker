@@ -2,6 +2,7 @@ import { syncPayPerBookOrderFromJob } from "@/lib/billing/pay-per-book.service";
 import { prisma } from "@/lib/db/prisma";
 import { claimProjectGenerationJob } from "@/lib/jobs/tts-claim";
 import { runTtsJob } from "@/lib/jobs/tts.runner";
+import { recordToolEventForProject } from "@/lib/tools/events";
 import { NARRATION_GENERIC_FAILURE } from "@/lib/tts/narration-failure";
 
 const HEARTBEAT_MS = 60_000;
@@ -18,11 +19,24 @@ async function cancelQueuedChildren(parentId: string): Promise<void> {
 }
 
 async function failParent(parentId: string, errorCode: string, errorMessage: string): Promise<void> {
-  await prisma.generationJob.updateMany({
+  const failed = await prisma.generationJob.updateMany({
     where: { id: parentId, status: "PROCESSING" },
     data: { status: "FAILED", errorCode, errorMessage, completedAt: new Date() },
   });
   await cancelQueuedChildren(parentId);
+  if (failed.count > 0) {
+    const parent = await prisma.generationJob.findUnique({
+      where: { id: parentId },
+      select: { projectId: true },
+    });
+    if (parent) {
+      await recordToolEventForProject({
+        projectId: parent.projectId,
+        name: "tool_generate_failed",
+        metadata: { jobId: parentId, mode: "project", errorCode },
+      });
+    }
+  }
 }
 
 async function nextChild(parentId: string) {
@@ -59,11 +73,24 @@ export async function runProjectGeneration(parentId: string): Promise<void> {
 
       const child = await nextChild(parentId);
       if (!child) {
-        await prisma.generationJob.updateMany({
+        const completed = await prisma.generationJob.updateMany({
           where: { id: parentId, status: "PROCESSING" },
           data: { status: "COMPLETED", completedAt: new Date(), errorCode: null, errorMessage: null },
         });
         await syncPayPerBookOrderFromJob(parentId).catch(() => undefined);
+        if (completed.count > 0) {
+          const parent = await prisma.generationJob.findUnique({
+            where: { id: parentId },
+            select: { projectId: true },
+          });
+          if (parent) {
+            await recordToolEventForProject({
+              projectId: parent.projectId,
+              name: "tool_generate_completed",
+              metadata: { jobId: parentId, mode: "project" },
+            });
+          }
+        }
         return;
       }
 

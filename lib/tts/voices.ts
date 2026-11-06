@@ -78,11 +78,10 @@ type ElevenLabsVoiceSeed = [
 ];
 
 /**
- * Curated English (American) ElevenLabs voices for audiobook-style narration.
- * Selected by usage popularity on ElevenLabs (language=English, accent=American).
- * Short blurbs are for operators; the UI currently shows `name` only.
+ * Curated ElevenLabs v4 English voices for audiobook-style narration.
+ * Grouped by accent; short blurbs stay in `name` so narrators are easy to tell apart.
  */
-const ELEVENLABS_VOICE_SEEDS: ElevenLabsVoiceSeed[] = [
+const ELEVENLABS_US_VOICE_SEEDS: ElevenLabsVoiceSeed[] = [
   // Male
   ["adam", "bfGb7JTLUnZebZRiFYyq", "Adam", "male", "Distinct, deep and engaging"],
   ["sully", "wAGzRVkxKEs8La0lmdrE", "Sully", "male", "Mature, deep and intriguing"],
@@ -104,22 +103,68 @@ const ELEVENLABS_VOICE_SEEDS: ElevenLabsVoiceSeed[] = [
   ["mia", "rCuVrCHOUMY3OwyJBJym", "Mia", "female", "Clear, smooth, professional"],
 ];
 
-/** ElevenLabs v4 voices (speed not supported by the model). */
-export const ELEVENLABS_VOICES: VoiceDefinition[] = ELEVENLABS_VOICE_SEEDS.map(
-  ([idSuffix, providerVoiceId, name, gender, blurb]) => ({
+const ELEVENLABS_AU_VOICE_SEEDS: ElevenLabsVoiceSeed[] = [
+  // Female
+  ["charlotte", "aRlmTYIQo6Tlg5SlulGC", "Charlotte", "female", "Soft, gentle, calming narration"],
+  ["charlotte-meditation", "uhYnkYTBc711oAY590Ea", "Charlotte", "female", "Meditation & relaxation"],
+  ["freya", "u8ADrbquiJqufR9XMtb8", "Freya", "female", "Confident, relatable narration"],
+  ["aussie-margot", "uvxDZyxRISyWYoLZ1r0W", "Aussie Margot", "female", "Warm and sweet"],
+  ["sammy", "QhzTYkz7VbKNwVeK3URf", "Sammy", "female", "Calm young narrator"],
+  ["keira", "XuvMi7mpVgif9dcUzS0s", "Keira", "female", "Calm and natural"],
+  // Male
+  ["royce", "omRordDZNt4Gy45cetUa", "Royce", "male", "Suspense & mystery narration"],
+  ["neil", "iIg0uI51lssRFauz7W21", "Neil", "male", "Soft Australian accent"],
+  ["bailey", "mWNaiDAPDAx080ro4nL5", "Bailey", "male", "Natural conversational"],
+  ["liam", "bVxvWZpqo0NXHobrj0ri", "Liam", "male", "Conversational POV narrator"],
+  ["david", "CFN1FeTIoSu4xm6mDCkI", "David", "male", "Tech & storytelling"],
+  ["neil-sammons", "ZpB89BxicW4UZeXaEdWo", "Neil Sammons", "male", "Deep & melodious"],
+  ["australian-man", "oUbjcKlrUrhnYf9kwdmI", "Australian Man", "male", "Professional narration"],
+];
+
+const ELEVENLABS_GB_VOICE_SEEDS: ElevenLabsVoiceSeed[] = [
+  // Male
+  ["richard-basston", "i6icHCFicH3kzHTat04x", "Richard Basston", "male", "Deep"],
+  ["nathaniel", "AeRdCCKzvd23BpJoofzx", "Nathaniel", "male", "Engaging, British and calm"],
+  ["frederick-surrey", "j9jfwdrw7BRfcR43Qohk", "Frederick Surrey", "male", "Smooth and velvety"],
+  ["owen", "giAoKpl5weRTCJK7uB9b", "Owen", "male", "Engaging and clear storyteller"],
+  ["archer", "oQV06a7Gn8pbCJh5DXcO", "Archer", "male", "Clean, balanced and engaging"],
+  ["johnny-kid", "8JVbfL6oEdmuxKn5DK2C", "Johnny Kid", "male", "Serious and calm narrator"],
+  ["josh-midlands", "JxfH70f7jvYhi0DKD8Xs", "Josh", "male", "Mid twenties Midlands accent"],
+  // Female
+  ["verity-x", "1hlpeD1ydbI2ow0Tt3EW", "Verity X", "female", "Calm British narration"],
+  ["rachel", "TYKLc7ViOIGE13dSZYlK", "Rachel", "female", "Friendly, energetic & authentic"],
+  ["priyanka", "BpjGufoPiobT79j2vtj4", "Priyanka", "female", "Calm, neutral and relaxed"],
+  ["ana", "rCmVtv8cYU60uhlsOo1M", "Ana", "female", "Emotional, warm and expressive"],
+  ["amara", "GEcKlrQ1MWkJKoc7UTJd", "Amara", "female", "Calm, elegant and refined"],
+  ["holly", "B9PDs7mcHTMxHUw5U8Cf", "Holly", "female", "Relaxing, velvety and silky"],
+  ["sally-ford", "kBag1HOZlaVBH7ICPE8x", "Sally Ford", "female", "Warm, friendly and British"],
+];
+
+function mapElevenLabsSeeds(
+  seeds: ElevenLabsVoiceSeed[],
+  languageCode: string,
+  languageName: string,
+): VoiceDefinition[] {
+  return seeds.map(([idSuffix, providerVoiceId, name, gender, blurb]) => ({
     id: `elevenlabs-${idSuffix}`,
     provider: "elevenlabs",
     providerVoiceId,
-    // Keep the short blurb in the label so users can tell narrators apart.
     name: `${name} — ${blurb}`,
-    languageCode: "en-US",
-    languageName: "English (US)",
+    languageCode,
+    languageName,
     gender,
     tier: "premium",
     supportsPreview: true,
     supportsSpeed: false,
-  }),
-);
+  }));
+}
+
+/** ElevenLabs v4 voices (speed not supported by the model). */
+export const ELEVENLABS_VOICES: VoiceDefinition[] = [
+  ...mapElevenLabsSeeds(ELEVENLABS_US_VOICE_SEEDS, "en-US", "English (US)"),
+  ...mapElevenLabsSeeds(ELEVENLABS_GB_VOICE_SEEDS, "en-GB", "English (UK)"),
+  ...mapElevenLabsSeeds(ELEVENLABS_AU_VOICE_SEEDS, "en-AU", "English (Australia)"),
+];
 
 /** MiniMax Speech voices on Replicate (active when generate model is MiniMax). */
 export const REPLICATE_MINIMAX_VOICES: VoiceDefinition[] = [

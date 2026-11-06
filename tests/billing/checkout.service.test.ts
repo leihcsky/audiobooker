@@ -37,6 +37,7 @@ const getUserPlanState = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/prisma", () => ({ prisma: db }));
 vi.mock("@/lib/billing/providers", () => ({ getBillingProvider: () => provider }));
 vi.mock("@/lib/billing/entitlements", () => ({ getUserPlanState }));
+vi.mock("@/lib/tools/events", () => ({ recordToolEvent: vi.fn(async () => undefined) }));
 
 import { createCheckout } from "@/lib/billing/checkout.service";
 import { PLANS } from "@/lib/billing/plans";

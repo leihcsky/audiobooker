@@ -17,6 +17,7 @@ import { buildChapterZip } from "@/lib/export/zip";
 import { effectiveAiDisclosure } from "@/lib/publish/disclosure";
 import { getStorage } from "@/lib/storage";
 import { buildExportObjectKey } from "@/lib/storage/keys";
+import { recordToolEventForProject } from "@/lib/tools/events";
 
 const USER_SAFE_FAILURE = "We couldn't export this audiobook. Please try again.";
 
@@ -240,6 +241,11 @@ export async function runExportJob(jobId: string): Promise<void> {
       sizeBytes: output.length,
       masteringPreset: exportRecord.masteringPreset,
       qcVerdict: qcReport?.verdict,
+    });
+    await recordToolEventForProject({
+      projectId: job.projectId,
+      name: "tool_export_completed",
+      metadata: { jobId: job.id, exportId: exportRecord.id, type: job.type },
     });
   } catch (error) {
     const code =

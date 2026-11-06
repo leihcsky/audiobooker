@@ -13,6 +13,7 @@ import {
 import { BillingSignatureError, type BillingWebhookEvent } from "@/lib/billing/provider";
 import { getBillingProvider } from "@/lib/billing/providers";
 import { prisma } from "@/lib/db/prisma";
+import { recordToolEvent } from "@/lib/tools/events";
 
 type Db = Prisma.TransactionClient;
 
@@ -33,7 +34,7 @@ function addMonths(date: Date, months: number): Date {
 }
 
 async function findOrder(
-  tx: Db,
+  tx: Db | typeof prisma,
   provider: string,
   event: BillingWebhookEvent,
 ): Promise<BillingOrder | null> {
@@ -331,6 +332,27 @@ export async function handleBillingWebhook(
     note: result.note,
   });
 
+  if (result.outcome === "PROCESSED") {
+    const paidKinds = new Set(["one_time.paid", "subscription.activated", "subscription.recovered"]);
+    if (paidKinds.has(event.kind)) {
+      const order = await findOrder(prisma, provider.id, event);
+      if (order?.status === "PAID") {
+        await recordToolEvent({
+          actor: { type: "user", userId: order.userId },
+          projectId: order.projectId,
+          name: "checkout_paid",
+          metadata: {
+            billingOrderId: order.id,
+            itemId: order.itemId,
+            kind: order.kind,
+            amountUsd: Number(order.amountUsd),
+            webhookKind: event.kind,
+          },
+        });
+      }
+    }
+  }
+
   if (
     result.outcome === "PROCESSED" &&
     event.kind === "one_time.paid" &&
@@ -343,7 +365,7 @@ export async function handleBillingWebhook(
     });
     if (paid?.kind === "PAY_PER_BOOK" && paid.status === "PAID") {
       void startPayPerBookGeneration(event.reference).catch((error) => {
-        console.error("pay_per_book_fulfil_failed", {
+        console.error("pay_per_book_resume_failed", {
           billingOrderId: event.reference,
           message: error instanceof Error ? error.message.slice(0, 400) : "unknown",
         });

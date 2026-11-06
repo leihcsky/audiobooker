@@ -55,6 +55,7 @@ export async function claimAfterSignIn(input: {
   if (projectId) {
     await recordToolEvent({
       actor: { type: "user", userId: input.userId },
+      anonymousSessionId: input.sessionId,
       projectId,
       name: "tool_project_claimed",
     });

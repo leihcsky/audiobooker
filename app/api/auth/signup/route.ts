@@ -11,12 +11,20 @@ export async function POST(request: Request) {
     const input = signupSchema.parse(body);
     const actor = await getOptionalActor();
     const user = await signupUser(input);
+    const anonymousSessionId = actor?.type === "anonymous" ? actor.sessionId : null;
+    await recordToolEvent({
+      actor: { type: "user", userId: user.id },
+      anonymousSessionId,
+      name: "sign_up_completed",
+      metadata: { method: "email", hadAnonymousSession: Boolean(anonymousSessionId) },
+    });
     let claimed: { id: string }[] = [];
-    if (actor?.type === "anonymous") {
-      claimed = await claimSessionProjectsForUser(actor.sessionId, user.id);
+    if (anonymousSessionId) {
+      claimed = await claimSessionProjectsForUser(anonymousSessionId, user.id);
       if (claimed[0]) {
         await recordToolEvent({
           actor: { type: "user", userId: user.id },
+          anonymousSessionId,
           projectId: claimed[0].id,
           name: "tool_project_claimed",
         });

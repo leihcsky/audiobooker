@@ -10,6 +10,7 @@ const REGION_ACCENT: Record<string, string> = {
   GB: "British",
   UK: "British",
   AU: "Australian",
+  AUSTRALIA: "Australian",
   MX: "Mexican",
   ES: "Spain",
   BR: "Brazilian",

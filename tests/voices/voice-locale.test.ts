@@ -11,6 +11,10 @@ describe("voiceLocaleParts", () => {
       language: "English",
       accent: "British",
     });
+    expect(voiceLocaleParts({ languageName: "English (Australia)", language: "en-AU" })).toEqual({
+      language: "English",
+      accent: "Australian",
+    });
   });
 
   it("keeps descriptive accents from the language name", () => {

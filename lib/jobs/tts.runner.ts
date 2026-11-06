@@ -24,6 +24,7 @@ import {
 } from "@/lib/tts/segments";
 import { effectiveSpeechSpeed } from "@/lib/tts/speed";
 import type { TTSProvider, VoiceDefinition } from "@/lib/tts/types";
+import { recordToolEventForProject } from "@/lib/tools/events";
 import { recordTtsCharacters } from "@/lib/usage/usage.service";
 
 const USER_SAFE_FAILURE = NARRATION_GENERIC_FAILURE;
@@ -55,6 +56,8 @@ export async function runTtsJob(jobId: string): Promise<void> {
     return;
   }
   const chapter = job.chapter;
+  /** Parent batch jobs emit generate_completed once; avoid per-chapter spam. */
+  const isStandaloneChapterJob = !job.parentJobId;
 
   try {
     const voiceId = job.voiceId ?? chapter.selectedVoiceId;
@@ -236,6 +239,13 @@ export async function runTtsJob(jobId: string): Promise<void> {
       billableCharacters,
       actualCost: actual.estimatedCost,
     });
+    if (isStandaloneChapterJob) {
+      await recordToolEventForProject({
+        projectId: job.projectId,
+        name: "tool_generate_completed",
+        metadata: { jobId: job.id, chapterId: chapter.id, mode: "chapter" },
+      });
+    }
   } catch (error) {
     const code = error instanceof AppError ? error.code : "TTS_GENERATION_FAILED";
     console.info("tts_failed", {
@@ -272,6 +282,13 @@ export async function runTtsJob(jobId: string): Promise<void> {
         await releaseReservationForJob(tx, job.id, "job_failed");
       }
     });
+    if (isStandaloneChapterJob) {
+      await recordToolEventForProject({
+        projectId: job.projectId,
+        name: "tool_generate_failed",
+        metadata: { jobId: job.id, chapterId: chapter.id, mode: "chapter", errorCode: code },
+      });
+    }
   }
 }
 

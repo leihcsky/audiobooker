@@ -67,6 +67,14 @@ describe("elevenlabs TTS adapter", () => {
     expect(voices.some((voice) => voice.id === "elevenlabs-adam")).toBe(true);
     expect(resolveVoice({ premium: true }, "elevenlabs-adam").provider.id).toBe("elevenlabs");
     expect(voices.find((voice) => voice.id === "elevenlabs-adam")?.supportsSpeed).toBe(false);
+    const charlotte = voices.find((voice) => voice.id === "elevenlabs-charlotte");
+    expect(charlotte?.languageCode).toBe("en-AU");
+    expect(charlotte?.providerVoiceId).toBe("aRlmTYIQo6Tlg5SlulGC");
+    expect(voices.some((voice) => voice.id === "elevenlabs-royce")).toBe(true);
+    const nathaniel = voices.find((voice) => voice.id === "elevenlabs-nathaniel");
+    expect(nathaniel?.languageCode).toBe("en-GB");
+    expect(nathaniel?.providerVoiceId).toBe("AeRdCCKzvd23BpJoofzx");
+    expect(voices.some((voice) => voice.id === "elevenlabs-verity-x")).toBe(true);
   });
 
   it("rejects unknown voices", async () => {

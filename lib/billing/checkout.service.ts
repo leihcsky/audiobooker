@@ -6,6 +6,7 @@ import { PLANS } from "@/lib/billing/plans";
 import type { BillingItemId } from "@/lib/billing/provider";
 import { getBillingProvider } from "@/lib/billing/providers";
 import { prisma } from "@/lib/db/prisma";
+import { recordToolEvent } from "@/lib/tools/events";
 import { getSiteUrl } from "@/lib/tools/site";
 
 const CHECKOUT_EXPIRY_SECONDS = 60 * 60;
@@ -89,6 +90,16 @@ export async function createCheckout(
       where: { id: order.id },
       data: { checkoutSessionId: session.sessionId },
     });
+    await recordToolEvent({
+      actor: { type: "user", userId: user.id },
+      name: "checkout_started",
+      metadata: {
+        billingOrderId: order.id,
+        itemId: item,
+        kind: planned.kind,
+        amountUsd: planned.amountUsd,
+      },
+    });
     return { checkoutUrl: session.checkoutUrl };
   } catch (error) {
     console.error("billing_checkout_failed", {
@@ -96,6 +107,16 @@ export async function createCheckout(
       item,
       orderId: order.id,
       message: error instanceof Error ? error.message : "unknown",
+    });
+    await recordToolEvent({
+      actor: { type: "user", userId: user.id },
+      name: "checkout_failed",
+      metadata: {
+        billingOrderId: order.id,
+        itemId: item,
+        kind: planned.kind,
+        stage: "provider_create",
+      },
     });
     throw billingUnavailable();
   }

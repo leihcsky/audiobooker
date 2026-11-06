@@ -11,6 +11,7 @@ import { assertProjectWithinPlan } from "@/lib/billing/entitlements";
 import { assertProjectAccess } from "@/lib/tools/access";
 import { ingestSourceFile } from "@/lib/ingestion/ingestion.service";
 import { toJobSummary, type JobSummary } from "@/lib/projects/project.detail";
+import { recordToolEventForProject } from "@/lib/tools/events";
 
 export async function startParseJob(input: {
   userId?: string;
@@ -128,6 +129,11 @@ export async function runParseJob(jobId: string): Promise<void> {
         errorCode: null,
         errorMessage: null,
       },
+    });
+    await recordToolEventForProject({
+      projectId: job.projectId,
+      name: "tool_parse_completed",
+      metadata: { jobId, sourceFileId: source.id },
     });
   } catch (error) {
     const code = error instanceof AppError ? error.code : "PARSE_FAILED";

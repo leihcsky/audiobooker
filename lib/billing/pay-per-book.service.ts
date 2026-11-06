@@ -14,6 +14,7 @@ import type { PayPerBookOrderDto, PayPerBookQuoteDto } from "@/lib/billing/pay-p
 import { assertProjectWithinPlan, getVoiceAccess } from "@/lib/billing/entitlements";
 import { getBillingProvider } from "@/lib/billing/providers";
 import { getSiteUrl } from "@/lib/tools/site";
+import { recordToolEvent } from "@/lib/tools/events";
 import { prisma } from "@/lib/db/prisma";
 import { scheduleProjectGeneration } from "@/lib/jobs/schedule-tts";
 import { countWords } from "@/lib/parser/normalize";
@@ -192,6 +193,19 @@ export async function createPayPerBookQuote(input: {
     },
   });
 
+  await recordToolEvent({
+    actor: { type: "user", userId: input.userId },
+    projectId: input.projectId,
+    name: "quote_created",
+    metadata: {
+      quoteId: created.id,
+      billableMinutes: price.billableMinutes,
+      totalAmount: price.totalAmount,
+      voiceId: voice.id,
+      chapterCount: chapters.length,
+    },
+  });
+
   return toQuoteDto(created, estimatedSeconds);
 }
 
@@ -331,6 +345,18 @@ export async function createPayPerBookCheckout(input: {
       where: { id: billingOrderId },
       data: { checkoutSessionId: session.sessionId },
     });
+    await recordToolEvent({
+      actor: { type: "user", userId: input.userId },
+      projectId: quote.projectId,
+      name: "checkout_started",
+      metadata: {
+        billingOrderId,
+        quoteId: quote.id,
+        itemId: PAY_PER_BOOK_CONFIG.itemId,
+        kind: "PAY_PER_BOOK",
+        amountUsd,
+      },
+    });
     return { checkoutUrl: session.checkoutUrl, billingOrderId };
   } catch (error) {
     await prisma.payPerBookOrder.update({
@@ -340,6 +366,18 @@ export async function createPayPerBookCheckout(input: {
     console.error("pay_per_book_checkout_failed", {
       billingOrderId,
       message: error instanceof Error ? error.message : String(error),
+    });
+    await recordToolEvent({
+      actor: { type: "user", userId: input.userId },
+      projectId: quote.projectId,
+      name: "checkout_failed",
+      metadata: {
+        billingOrderId,
+        quoteId: quote.id,
+        itemId: PAY_PER_BOOK_CONFIG.itemId,
+        kind: "PAY_PER_BOOK",
+        stage: "provider_create",
+      },
     });
     throw billingUnavailable();
   }

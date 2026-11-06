@@ -327,7 +327,6 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
         return;
       }
       if (payload.data.job.status === "COMPLETED") {
-        await recordEvent("tool_parse_completed");
         await loadProject(projectId);
       }
       if (payload.data.job.status === "FAILED") {
@@ -349,11 +348,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
     const timer = window.setInterval(async () => {
       const refreshed = await loadProject(projectId);
       const current = refreshed.chapters.find((chapter) => chapter.id === generatingChapterId);
-      if (current?.status === "READY") {
-        await recordEvent("tool_generate_completed");
-      }
       if (current?.status === "FAILED") {
-        await recordEvent("tool_generate_failed");
         setError(
           narrationFailureCopy({
             title: current.title,
@@ -364,7 +359,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
       }
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [batchRunning, generatingChapterId, loadProject, projectId, recordEvent]);
+  }, [batchRunning, generatingChapterId, loadProject, projectId]);
 
   const generationJobId = batchRunning ? generation?.job.id ?? null : null;
   useEffect(() => {
@@ -395,11 +390,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
       if (!finished || finished.job.id !== generationJobId) {
         return;
       }
-      if (finished.job.status === "COMPLETED") {
-        await recordEvent("tool_generate_completed");
-      }
       if (finished.job.status === "FAILED") {
-        await recordEvent("tool_generate_failed");
         const failed = refreshed.chapters.find((chapter) => chapter.generationError);
         setError(
           narrationFailureCopy({
@@ -411,7 +402,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
       }
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [generationJobId, loadProject, projectId, recordEvent]);
+  }, [generationJobId, loadProject, projectId]);
 
   useEffect(() => {
     if (!busyGenerating) {
@@ -538,7 +529,6 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
         setCompletedExports((current) => ({ ...current, [finished.type]: finished }));
         setActiveExport(null);
         await downloadExport(finished.id);
-        await recordEvent("tool_export_completed");
       }
       if (finished.status === "FAILED") {
         setActiveExport(null);
@@ -546,7 +536,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
       }
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [activeExport?.id, downloadExport, projectId, recordEvent]);
+  }, [activeExport?.id, downloadExport, projectId]);
 
   async function ensureProject(title: string): Promise<string> {
     if (projectId) {
@@ -657,9 +647,10 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
 
   async function uploadFile(file: File) {
     setPending("upload");
-    await recordEvent("tool_file_selected");
     try {
+      // Create/ensure the project (and anon cookie) before file_selected so the actor sticks.
       const id = await ensureProject(titleFromFilename(file.name));
+      await recordEvent("tool_file_selected");
       const presignResponse = await fetch("/api/uploads/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

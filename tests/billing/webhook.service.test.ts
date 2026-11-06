@@ -92,6 +92,12 @@ vi.mock("@/lib/billing/credits.service", () => credits);
 vi.mock("@/lib/billing/providers", () => ({
   getBillingProvider: () => ({ id: "waffo", parseWebhook }),
 }));
+vi.mock("@/lib/tools/events", () => ({ recordToolEvent: vi.fn(async () => undefined) }));
+vi.mock("@/lib/billing/pay-per-book.service", () => ({
+  markPayPerBookPaid: vi.fn(async () => ({ id: "ppb-1" })),
+  markPayPerBookRefunded: vi.fn(async () => undefined),
+  startPayPerBookGeneration: vi.fn(async () => undefined),
+}));
 
 import { BillingSignatureError } from "@/lib/billing/provider";
 import { handleBillingWebhook } from "@/lib/billing/webhook.service";

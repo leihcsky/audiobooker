@@ -10,16 +10,28 @@ import { trackEvent } from "@/lib/analytics/track";
 const POLL_MS = 3000;
 const MAX_POLLS = 40;
 const TRACKED_KEY_PREFIX = "ab_purchase_tracked:";
+const RETURNED_KEY_PREFIX = "ab_checkout_returned:";
 
-function trackPurchaseOnce(order: ReturnedOrder) {
-  const key = `${TRACKED_KEY_PREFIX}${order.id}`;
+function onceKey(prefix: string, orderId: string): string {
+  return `${prefix}${orderId}`;
+}
+
+function markOnce(key: string): boolean {
   try {
     if (window.localStorage.getItem(key)) {
-      return;
+      return false;
     }
     window.localStorage.setItem(key, "1");
+    return true;
   } catch {
-    // Storage blocked: still report; GA de-duplicates by transaction_id.
+    // Storage blocked: still emit once per mount via caller discipline.
+    return true;
+  }
+}
+
+function trackPurchaseOnce(order: ReturnedOrder) {
+  if (!markOnce(onceKey(TRACKED_KEY_PREFIX, order.id))) {
+    return;
   }
   trackEvent(
     "purchase",
@@ -28,11 +40,34 @@ function trackPurchaseOnce(order: ReturnedOrder) {
   );
 }
 
+function recordCheckoutReturnedOnce(order: ReturnedOrder) {
+  if (!markOnce(onceKey(RETURNED_KEY_PREFIX, order.id))) {
+    return;
+  }
+  void fetch("/api/tools/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "checkout_returned",
+      metadata: {
+        billingOrderId: order.id,
+        itemId: order.itemId,
+        kind: order.kind,
+        status: order.status,
+      },
+    }),
+  }).catch(() => undefined);
+}
+
 export function CheckoutReturn({ order }: { order: ReturnedOrder }) {
   const router = useRouter();
   const [polls, setPolls] = useState(0);
   const pending = order.status === "PENDING";
   const gaveUp = pending && polls >= MAX_POLLS;
+
+  useEffect(() => {
+    recordCheckoutReturnedOnce(order);
+  }, [order]);
 
   useEffect(() => {
     if (order.status === "PAID") {

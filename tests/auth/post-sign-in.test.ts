@@ -61,6 +61,7 @@ describe("claimAfterSignIn", () => {
     expect(claimProjectForUser).toHaveBeenCalledWith(PROJECT_ID, "user-1", "session-1");
     expect(recordToolEvent).toHaveBeenCalledWith({
       actor: { type: "user", userId: "user-1" },
+      anonymousSessionId: "session-1",
       projectId: PROJECT_ID,
       name: "tool_project_claimed",
     });
