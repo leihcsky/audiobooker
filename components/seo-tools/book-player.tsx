@@ -6,14 +6,24 @@ import { Button } from "@/components/ui/button";
 type PlayerChapter = {
   id: string;
   title: string;
+  /**
+   * Changes when this chapter's audio file is replaced (e.g. regenerate with a
+   * new voice). When omitted, the player only refetches on chapter change.
+   */
+  audioKey?: string | null;
 };
 
 type LoadedSource = {
   chapterId: string;
+  audioKey: string;
   url: string;
 };
 
-/** Plays finished chapters back to back. Each chapter fetches a fresh signed URL when it becomes current. */
+function revisionKey(chapter: PlayerChapter): string {
+  return `${chapter.id}:${chapter.audioKey ?? ""}`;
+}
+
+/** Plays finished chapters back to back. Refetches the signed URL when the audio file changes. */
 export function BookPlayer({ chapters }: { chapters: PlayerChapter[] }) {
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [source, setSource] = useState<LoadedSource | null>(null);
@@ -28,12 +38,18 @@ export function BookPlayer({ chapters }: { chapters: PlayerChapter[] }) {
   );
   const current = chapters[index] ?? null;
   const currentId = current?.id ?? null;
+  const currentRevision = current ? revisionKey(current) : null;
 
   useEffect(() => {
-    if (!currentId || source?.chapterId === currentId) {
+    if (!currentId || !current || !currentRevision) {
+      return;
+    }
+    if (source?.chapterId === currentId && source.audioKey === currentRevision) {
       return;
     }
     let cancelled = false;
+    setSource(null);
+    setFailedId(null);
     void fetch(`/api/chapters/${currentId}/audio`)
       .then((response) => response.json().catch(() => null))
       .then((payload: { data?: { audioUrl?: string } } | null) => {
@@ -42,7 +58,7 @@ export function BookPlayer({ chapters }: { chapters: PlayerChapter[] }) {
         }
         const url = payload?.data?.audioUrl;
         if (url) {
-          setSource({ chapterId: currentId, url });
+          setSource({ chapterId: currentId, audioKey: currentRevision, url });
           setFailedId(null);
         } else {
           setFailedId(currentId);
@@ -56,7 +72,9 @@ export function BookPlayer({ chapters }: { chapters: PlayerChapter[] }) {
     return () => {
       cancelled = true;
     };
-  }, [currentId, source?.chapterId, attempt]);
+    // `current` is derived from currentId + chapters; revision captures audio replacement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: refetch on id/revision/attempt only
+  }, [currentId, currentRevision, attempt]);
 
   useEffect(() => {
     if (source && autoplay.current) {
@@ -84,7 +102,7 @@ export function BookPlayer({ chapters }: { chapters: PlayerChapter[] }) {
     setAttempt((value) => value + 1);
   }
 
-  const ready = source?.chapterId === current.id;
+  const ready = source?.chapterId === current.id && source.audioKey === revisionKey(current);
 
   return (
     <div className="space-y-2 rounded-md border border-border p-3">
@@ -124,8 +142,9 @@ export function BookPlayer({ chapters }: { chapters: PlayerChapter[] }) {
             Try again
           </button>
         </p>
-      ) : ready ? (
+      ) : ready && source ? (
         <audio
+          key={source.url}
           ref={audioRef}
           className="w-full"
           controls

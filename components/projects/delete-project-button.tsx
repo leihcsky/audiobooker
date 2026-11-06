@@ -2,15 +2,33 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 
 type DeleteProjectButtonProps = {
   projectId: string;
   title: string;
+  /** Button label. */
+  label?: string;
+  variant?: ButtonProps["variant"];
+  size?: ButtonProps["size"];
+  className?: string;
+  /**
+   * Where to go after a successful delete.
+   * Pass `null` to stay on the current page (e.g. the projects list).
+   */
+  redirectTo?: string | null;
 };
 
-export function DeleteProjectButton({ projectId, title }: DeleteProjectButtonProps) {
+export function DeleteProjectButton({
+  projectId,
+  title,
+  label = "Delete",
+  variant = "destructive",
+  size = "default",
+  className,
+  redirectTo = "/studio/projects",
+}: DeleteProjectButtonProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,20 +50,26 @@ export function DeleteProjectButton({ projectId, title }: DeleteProjectButtonPro
     }
 
     setOpen(false);
-    router.push("/studio/projects");
+    if (redirectTo) {
+      router.push(redirectTo);
+    }
     router.refresh();
   }
 
   return (
     <>
-      <Button variant="destructive" onClick={() => setOpen(true)}>
-        Delete project
+      <Button variant={variant} size={size} className={className} onClick={() => setOpen(true)}>
+        {label}
       </Button>
       <Dialog
         open={open}
-        title="Delete project"
+        title="Delete"
         description={`Delete “${title}”? This cannot be undone.`}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          if (!pending) {
+            setOpen(false);
+          }
+        }}
       >
         {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
         <div className="flex justify-end gap-3">

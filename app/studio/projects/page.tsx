@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { listProjectsForUser } from "@/lib/projects/project.service";
 import { Card, CardContent } from "@/components/ui/card";
+import { DeleteProjectButton } from "@/components/projects/delete-project-button";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { formatDate } from "@/lib/utils";
 
@@ -65,13 +66,24 @@ export default async function ProjectsPage() {
                   <td className="px-4 py-3 text-muted-foreground">
                     {formatDate(project.updatedAt)}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/studio/projects/${project.id}`}
-                      className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium hover:bg-muted"
-                    >
-                      Open
-                    </Link>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Link
+                        href={`/studio/projects/${project.id}`}
+                        className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium hover:bg-muted"
+                      >
+                        Open
+                      </Link>
+                      <DeleteProjectButton
+                        projectId={project.id}
+                        title={project.title}
+                        label="Delete"
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        redirectTo={null}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

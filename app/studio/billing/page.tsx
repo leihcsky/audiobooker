@@ -116,8 +116,8 @@ function PlanCard({ overview }: { overview: BillingOverview }) {
                 Upgrade to Creator · ${PLANS.creator.monthlyPriceUsd}/month
               </CheckoutButton>
               <p className="text-center text-xs text-muted-foreground">
-                {remainingMinutes(PLANS.creator.premiumSecondsPerPeriod)} premium minutes every month,{" "}
-                {PLANS.creator.maxProjects} projects, lower pack prices.{" "}
+                {remainingMinutes(PLANS.creator.premiumSecondsPerPeriod)} Premium Minutes every month, advanced
+                editing tools, {PLANS.creator.maxProjects} projects, and lower pack prices.{" "}
                 <Link href="/pricing" className="underline">
                   Compare plans
                 </Link>

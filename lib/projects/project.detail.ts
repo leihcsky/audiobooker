@@ -38,6 +38,8 @@ export type ChapterSummary = {
   selectedSpeed: number;
   included: boolean;
   hasAudio: boolean;
+  /** Current chapter audio file; changes when audio is regenerated. */
+  currentAudioFileId: string | null;
   audioOutdated: boolean;
   audioDurationSeconds: number | null;
   latestTtsJobId: string | null;
@@ -160,6 +162,7 @@ export function toChapterSummary(
     selectedSpeed: Number(chapter.selectedSpeed),
     included: chapter.included,
     hasAudio: Boolean(chapter.currentAudioFileId),
+    currentAudioFileId: chapter.currentAudioFileId,
     audioOutdated: Boolean(chapter.currentAudioFileId) && chapter.audioOutdated,
     audioDurationSeconds: chapter.currentAudioFileId && duration != null ? Number(duration) : null,
     latestTtsJobId: latestTtsJob?.id ?? null,

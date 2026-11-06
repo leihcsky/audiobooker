@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { SpeechSpeedControl, DEFAULT_SPEECH_SPEED } from "@/components/tts/speech-speed-control";
 import { PayPerBookPanel } from "@/components/billing/pay-per-book-panel";
 import { PremiumEstimate } from "@/components/billing/premium-estimate";
+import { PremiumVoiceNudge } from "@/components/billing/premium-voice-nudge";
 import { BookSummary, SelectionSummary } from "@/components/projects/book-summary";
 import { useProjectCover } from "@/components/projects/use-project-cover";
 import { BookPlayer } from "@/components/seo-tools/book-player";
@@ -132,7 +133,11 @@ export function ProjectWorkspace({
   const stats = bookStats(displayChapters);
   const listenChapters = displayChapters
     .filter((chapter) => chapter.included && chapter.hasAudio)
-    .map((chapter) => ({ id: chapter.id, title: chapter.title }));
+    .map((chapter) => ({
+      id: chapter.id,
+      title: chapter.title,
+      audioKey: chapter.currentAudioFileId,
+    }));
   const coverUrl = useProjectCover(projectId, book.hasCover, book.updatedAt);
   const premiumSelected = selectedVoice?.tier === "PREMIUM";
   const premiumNeeded = premiumSelected
@@ -385,9 +390,10 @@ export function ProjectWorkspace({
 
           {!premiumSelected && toNarrate.length > 0 ? (
             <p className="rounded-lg border border-dashed border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-              Want a Premium voice without a subscription? Choose one marked{" "}
-              <span className="font-medium text-foreground">Premium</span> above to see a one-time
-              price for these chapters.
+              Want more expressive narration for storytelling and dialogue? Choose a{" "}
+              <span className="font-medium text-foreground">Premium</span> voice above — use Premium
+              Minutes or a one-time Pay-per-Book price for these chapters. Standard Voice stays on
+              your plan allowance.
             </p>
           ) : null}
 
@@ -520,8 +526,9 @@ export function ProjectWorkspace({
               Play finished chapters in order. When one ends, the next starts automatically.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <BookPlayer chapters={listenChapters} />
+            {!premiumSelected ? <PremiumVoiceNudge projectId={projectId} /> : null}
           </CardContent>
         </Card>
       ) : null}

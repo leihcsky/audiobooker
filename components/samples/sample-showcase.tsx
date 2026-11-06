@@ -69,8 +69,14 @@ function SampleCard({ sample }: { sample: AudiobookSample }) {
             <p className="mt-1 text-sm text-muted-foreground">by {sample.author}</p>
             <p className="mt-2 text-sm">{sample.clipLabel}</p>
           </div>
-          <audio controls preload="none" src={sample.audioSrc} className="w-full">
-            <a href={sample.audioSrc}>Download the sample</a>
+          <audio
+            controls
+            controlsList="nodownload"
+            preload="none"
+            src={sample.audioSrc}
+            className="w-full"
+          >
+            Your browser does not support audio playback.
           </audio>
           <ul className="flex flex-wrap gap-2">
             <FactPill label={`${sample.format} source`} />

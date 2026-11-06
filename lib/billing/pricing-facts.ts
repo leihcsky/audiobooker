@@ -58,15 +58,45 @@ export function payPerBookFacts(): {
   return {
     title: "Pay per book",
     summary:
-      "Prefer not to subscribe or buy a minute pack? Choose a Premium voice in a project and pay once for the chapters you select.",
+      "Pay once for the chapters you select with a Premium voice. Ideal when you want higher-quality narration for a single project without a subscription or minute balance.",
     points: [
       `From $${cfg.minimumOrderAmount.toFixed(2)}, then $${cfg.pricePerMinute.toFixed(2)} per minute of listening time`,
       `Listening time is rounded up to the next ${step} minutes before billing (for example, 27 minutes bills as ${Math.ceil(27 / step) * step} minutes)`,
+      "One-time payment — no automatic renewal",
       "Works on Free and Creator accounts",
       "Does not use or grant Premium Minutes",
+      "Already generated audio can be downloaded again for free",
       "Price is calculated in Studio after you pick chapters and a Premium voice",
     ],
   };
+}
+
+/** Plan feature rows for the full Free vs Creator comparison table. */
+export function planFeatureComparison(): {
+  label: string;
+  free: string;
+  creator: string;
+}[] {
+  const freeHours = planStandardListening(PLANS.free).replace(/^about /, "");
+  const creatorHours = planStandardListening(PLANS.creator).replace(/^about /, "");
+  const premium = remainingMinutes(PLANS.creator.premiumSecondsPerPeriod);
+  return [
+    { label: "Monthly price", free: "$0", creator: `$${PLANS.creator.monthlyPriceUsd}` },
+    { label: "Saved projects", free: String(PLANS.free.maxProjects), creator: String(PLANS.creator.maxProjects) },
+    {
+      label: "Standard Voice",
+      free: `${freeHours} / month (fair use)`,
+      creator: `${creatorHours} / month (fair use)`,
+    },
+    { label: "Premium Minutes", free: "Buy as needed", creator: `${premium} included each billing period` },
+    { label: "Premium Minutes rollover", free: "—", creator: "Unused minutes roll over one period" },
+    { label: "Chapter editing & regeneration", free: "Yes", creator: "Yes" },
+    { label: "MP3 / M4B export", free: "Yes", creator: "Yes" },
+    { label: "Pronunciation dictionary", free: "—", creator: "Yes" },
+    { label: "Paragraph-level regeneration", free: "—", creator: "Yes" },
+    { label: "Publish-ready mastering & QC report", free: "—", creator: "Yes" },
+    { label: "Minute pack pricing", free: "Standard", creator: "Creator discount" },
+  ];
 }
 
 function days(count: number): string {
@@ -100,18 +130,41 @@ export function pricingFaq(): PricingFaqItem[] {
   const exampleBillableMinutes =
     Math.ceil(exampleListeningMinutes / ppb.billingIncrementMinutes) * ppb.billingIncrementMinutes;
   const exampleAmount = (exampleBillableMinutes * ppb.pricePerMinute).toFixed(2);
+  const creatorPremium = remainingMinutes(PLANS.creator.premiumSecondsPerPeriod);
   return [
     {
-      question: "How much can I narrate for free?",
-      answer: `Without an account, one session narrates ${freeTrialListening()} of audio with standard voices. A free account includes ${planStandardListening(PLANS.free)} of standard-voice narration a month under fair use. These are estimates for English text at normal speed.`,
+      question: "What is the difference between Standard Voice and Premium Voice?",
+      answer:
+        "Standard Voice is designed for everyday audiobook creation and personal listening. Premium Voice provides more natural-sounding narration, richer expression, and a more engaging experience for storytelling and character dialogue.",
     },
     {
-      question: "What are premium minutes?",
-      answer: `Premium voices are paid per minute of finished audio. ${PLANS.creator.name} includes ${remainingMinutes(PLANS.creator.premiumSecondsPerPeriod)} minutes each billing period, and unused minutes roll over one period. One-time packs: ${packs}. Purchased minutes never expire.`,
+      question: "Can I create a complete audiobook with the Free plan?",
+      answer: `Yes. The Free plan includes ${planStandardListening(PLANS.free)} of Standard Voice generation per month under fair use. You can convert supported ebooks, manage chapters, and export your completed audiobook. These are estimates for English text at normal speed.`,
     },
     {
-      question: "Can I pay for just one book instead of buying minutes?",
-      answer: `Yes. Pay per book lets you choose chapters, pick a Premium voice, and pay a one-time price for that selection—starting at $${ppb.minimumOrderAmount.toFixed(2)}, then $${ppb.pricePerMinute.toFixed(2)} per minute. Listening time is rounded up to the next ${ppb.billingIncrementMinutes} minutes before billing (for example, about ${exampleListeningMinutes} minutes bills as ${exampleBillableMinutes} minutes × $${ppb.pricePerMinute.toFixed(2)} = $${exampleAmount}). It works without a subscription and does not use Premium Minutes. Open a project in Studio, choose a Premium voice, and follow the quote shown there.`,
+      question: "How much can I narrate without an account?",
+      answer: `Without an account, one session narrates ${freeTrialListening()} of audio with standard voices. Create a free account for monthly Standard Voice allowance, saved projects, and Premium Voice options.`,
+    },
+    {
+      question: "Why should I upgrade to Creator?",
+      answer: `Creator is for people who make audiobooks regularly. It includes ${PLANS.creator.maxProjects} projects, advanced editing, a pronunciation dictionary, paragraph-level fixes, publish-ready mastering with a quality report, and ${creatorPremium} Premium Minutes every billing period.`,
+    },
+    {
+      question: "Are Premium Minutes included in Creator?",
+      answer: `Yes. Creator includes ${creatorPremium} Premium Minutes per billing cycle. Eligible unused minutes can roll over for one additional billing cycle. Extra packs: ${packs}. Purchased minutes never expire.`,
+    },
+    {
+      question: "Can Free users purchase Premium Voice?",
+      answer:
+        "Yes. Free users can buy Premium Minutes or use Pay-per-Book without subscribing to Creator. Premium Voices are paid separately from the Free plan's Standard Voice allowance.",
+    },
+    {
+      question: "Do I need a subscription to use Premium Voice?",
+      answer: `No. Pay-per-Book lets you choose chapters, pick a Premium voice, and pay once—starting at $${ppb.minimumOrderAmount.toFixed(2)}, then $${ppb.pricePerMinute.toFixed(2)} per minute. Listening time is rounded up to the next ${ppb.billingIncrementMinutes} minutes before billing (for example, about ${exampleListeningMinutes} minutes bills as ${exampleBillableMinutes} minutes × $${ppb.pricePerMinute.toFixed(2)} = $${exampleAmount}). It does not use Premium Minutes.`,
+    },
+    {
+      question: "Do I have to pay again to download my audiobook?",
+      answer: "No. Downloading audio that has already been generated is free. You can export again whenever you need a fresh link.",
     },
     {
       question: "What files can I upload, and how large?",
@@ -127,7 +180,8 @@ export function pricingFaq(): PricingFaqItem[] {
     },
     {
       question: "Can I sell or publish the audiobooks I make?",
-      answer: "You keep your rights to the text you upload and to the audio produced from it, on every plan. Only convert books you have the right to use, and follow each store's rules, including disclosure of AI narration where required.",
+      answer:
+        "You keep your rights to the text you upload and to the audio produced from it, on every plan. Only convert books you have the right to use, and follow each store's rules, including disclosure of AI narration where required.",
     },
     {
       question: "Can I cancel or get a refund?",

@@ -234,7 +234,7 @@ export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSele
                   active={tier === "STANDARD"}
                   onClick={() => setTier("STANDARD")}
                   label="Standard"
-                  hint="Free"
+                  hint="Everyday"
                 />
               ) : null}
               {hasPremium ? (
@@ -242,10 +242,20 @@ export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSele
                   active={tier === "PREMIUM"}
                   onClick={() => setTier("PREMIUM")}
                   label="Premium"
-                  hint="Paid"
+                  hint="Expressive"
                 />
               ) : null}
             </div>
+            {tier === "PREMIUM" ? (
+              <p className="border-b border-border bg-amber-50/50 px-3 py-2 text-xs text-amber-950">
+                High-quality narration for storytelling and character dialogue. Uses Premium Minutes or
+                Pay-per-Book — not your Standard Voice allowance.
+              </p>
+            ) : hasStandard ? (
+              <p className="border-b border-border px-3 py-2 text-xs text-muted-foreground">
+                Clear, practical voices for everyday audiobook creation. Included with your plan.
+              </p>
+            ) : null}
 
             <div className="grid gap-2 border-b border-border p-3 sm:grid-cols-2">
               <label className="space-y-1 text-xs">
@@ -330,7 +340,13 @@ export function VoiceSelect({ id, voices, value, onChange, disabled }: VoiceSele
 
       {premium ? (
         <p className="text-sm text-amber-950">
-          Premium voice selected — each generation uses premium minutes.
+          Premium voice selected — more natural, expressive narration. Each generation uses Premium Minutes
+          or a Pay-per-Book quote, not your Standard Voice hours.
+        </p>
+      ) : selected ? (
+        <p className="text-sm text-muted-foreground">
+          Standard voice selected — suited to everyday listening. Switch to Premium when you want richer
+          delivery for stories and dialogue.
         </p>
       ) : null}
     </div>

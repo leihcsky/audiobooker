@@ -426,15 +426,18 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
   }, [busyGenerating]);
 
   useEffect(() => {
+    const cacheKey = (chapter: ChapterSummary) =>
+      `${chapter.id}:${chapter.currentAudioFileId ?? ""}`;
     const missing = readyChapters.filter(
-      (chapter) => !audioUrlsRef.current[chapter.id] && !audioPending.current.has(chapter.id),
+      (chapter) =>
+        !audioUrlsRef.current[cacheKey(chapter)] && !audioPending.current.has(cacheKey(chapter)),
     );
     if (missing.length === 0) {
       return;
     }
     let cancelled = false;
     for (const chapter of missing) {
-      audioPending.current.add(chapter.id);
+      audioPending.current.add(cacheKey(chapter));
     }
     void Promise.all(
       missing.map(async (chapter) => {
@@ -443,12 +446,12 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
         if (!response.ok || isApiError(payload) || !("data" in payload) || !payload.data.audioUrl) {
           return null;
         }
-        return [chapter.id, payload.data.audioUrl] as const;
+        return [cacheKey(chapter), payload.data.audioUrl] as const;
       }),
     )
       .then((entries) => {
         for (const chapter of missing) {
-          audioPending.current.delete(chapter.id);
+          audioPending.current.delete(cacheKey(chapter));
         }
         if (cancelled) {
           return;
@@ -467,7 +470,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
       })
       .catch(() => {
         for (const chapter of missing) {
-          audioPending.current.delete(chapter.id);
+          audioPending.current.delete(cacheKey(chapter));
         }
       });
     return () => {
@@ -1039,8 +1042,14 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
                         {statusLabel ? ` · ${statusLabel}` : ""}
                       </span>
                     </div>
-                    {audioUrls[chapter.id] ? (
-                      <audio className="w-full" controls src={audioUrls[chapter.id]} preload="metadata">
+                    {audioUrls[`${chapter.id}:${chapter.currentAudioFileId ?? ""}`] ? (
+                      <audio
+                        key={chapter.currentAudioFileId ?? chapter.id}
+                        className="w-full"
+                        controls
+                        src={audioUrls[`${chapter.id}:${chapter.currentAudioFileId ?? ""}`]}
+                        preload="metadata"
+                      >
                         Your browser does not support audio playback.
                       </audio>
                     ) : null}
@@ -1150,7 +1159,13 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <BookPlayer chapters={readyChapters} />
+            <BookPlayer
+              chapters={readyChapters.map((chapter) => ({
+                id: chapter.id,
+                title: chapter.title,
+                audioKey: chapter.currentAudioFileId,
+              }))}
+            />
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium">Format</legend>
               <label className="flex items-center gap-2 text-sm">
