@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DefaultBookCover } from "@/components/projects/default-book-cover";
 import type { BookStats } from "@/lib/projects/book-stats";
 import { formatSpokenLength } from "@/lib/tts/narration-length";
 
@@ -12,7 +13,7 @@ type BookSummaryProps = {
 export function BookSummary({ title, author, coverUrl, stats }: BookSummaryProps) {
   return (
     <div className="flex items-start gap-5">
-      <BookCover title={title} coverUrl={coverUrl} />
+      <BookCover title={title} author={author} coverUrl={coverUrl} />
       <div className="min-w-0 flex-1 space-y-3">
         <div>
           <h2 className="font-serif text-2xl leading-tight break-words">{title}</h2>
@@ -28,7 +29,15 @@ export function BookSummary({ title, author, coverUrl, stats }: BookSummaryProps
   );
 }
 
-function BookCover({ title, coverUrl }: { title: string; coverUrl: string | null }) {
+function BookCover({
+  title,
+  author,
+  coverUrl,
+}: {
+  title: string;
+  author: string | null;
+  coverUrl: string | null;
+}) {
   if (coverUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -39,15 +48,7 @@ function BookCover({ title, coverUrl }: { title: string; coverUrl: string | null
       />
     );
   }
-  return (
-    <div
-      aria-hidden="true"
-      className="flex h-32 w-24 shrink-0 flex-col justify-between rounded-md border border-border bg-gradient-to-br from-muted to-muted/40 p-2.5 shadow-sm"
-    >
-      <span className="line-clamp-4 font-serif text-xs leading-snug break-words">{title}</span>
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">No cover</span>
-    </div>
-  );
+  return <DefaultBookCover title={title} author={author} variant="portrait" />;
 }
 
 function StatPill({ value, label }: { value: string; label: string }) {

@@ -56,3 +56,29 @@ export async function getChapterAudioForActor(
     },
   };
 }
+
+/** Same-origin MP3 bytes for reliable in-browser seeking (paragraph listen). */
+export async function getChapterAudioFileForActor(
+  chapterId: string,
+  actor: Actor,
+): Promise<{ body: Buffer; mimeType: string; audioFileId: string }> {
+  const chapter = await prisma.chapter.findUnique({
+    where: { id: chapterId },
+    include: { currentAudioFile: true },
+  });
+
+  if (!chapter) {
+    throw chapterNotFound();
+  }
+  await assertProjectAccess(actor, chapter.projectId);
+  if (!chapter.currentAudioFile) {
+    throw audioNotFound();
+  }
+
+  const body = await getStorage().getObject(chapter.currentAudioFile.objectKey);
+  return {
+    body,
+    mimeType: chapter.currentAudioFile.mimeType || "audio/mpeg",
+    audioFileId: chapter.currentAudioFile.id,
+  };
+}

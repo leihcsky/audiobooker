@@ -27,6 +27,11 @@ export type ParagraphViewItem = {
   /** Seconds into the current audio, or null when the paragraph has no audio yet. */
   start: number | null;
   end: number | null;
+  /**
+   * Byte offset of this paragraph's first segment in the chapter MP3.
+   * Used for click-to-play: concatenated MP3s often ignore HTML5 mid-file seeks.
+   */
+  byteOffset: number | null;
   /** True when the text (or a pronunciation rule) changed since the audio was made. */
   changed: boolean;
   speakable: boolean;
@@ -63,16 +68,22 @@ function planFor(text: string, voice: ChapterVoice, rules: PronunciationRule[]) 
 
 function toViewItems(paragraphs: string[], chunks: PlannedChunk[], manifest: SegmentManifest): ParagraphViewItem[] {
   const matches = matchSegments(chunks, manifest);
+  // When every cache-key rematch misses (e.g. provider model id changed), fall back to
+  // the paragraph indexes stored on the manifest so Listen still works.
+  const rematchHitAnything = matches.some((segment) => segment !== null);
   return paragraphs.map((text, index) => {
     const own = chunks.flatMap((chunk, position) => (chunk.paragraph === index ? [matches[position]] : []));
     const found = own.filter((segment) => segment !== null);
-    const first = found[0];
-    const last = found[found.length - 1];
+    const timed = manifest.segments.filter((segment) => segment.paragraph === index);
+    const source = found.length > 0 ? found : !rematchHitAnything && timed.length > 0 ? timed : [];
+    const first = source[0];
+    const last = source[source.length - 1];
     return {
       index,
       text,
       start: first ? first.start : null,
       end: last ? Math.round((last.start + last.duration) * 1000) / 1000 : null,
+      byteOffset: first ? first.offset : null,
       changed: own.length > 0 && found.length < own.length,
       speakable: hasSpeakableText(text),
     };
@@ -96,6 +107,7 @@ export async function getParagraphViewForUser(chapterId: string, userId: string)
       text,
       start: null,
       end: null,
+      byteOffset: null,
       changed: false,
       speakable: hasSpeakableText(text),
     })),

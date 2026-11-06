@@ -13,6 +13,7 @@ import type { ExportReadinessDto } from "@/lib/export/export.service";
 import type { JobSummary } from "@/lib/projects/project.detail";
 import type { ProjectDto } from "@/lib/projects/project.dto";
 import { QcReportDetails } from "@/components/export/qc-report-details";
+import { DefaultBookCover } from "@/components/projects/default-book-cover";
 import { DEFAULT_NARRATOR_CREDIT } from "@/lib/publish/disclosure";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -298,9 +299,7 @@ export function ExportStudioPanel({ project, readiness, exports, canMaster }: Ex
               className="h-40 w-40 rounded-md border border-border object-cover"
             />
           ) : (
-            <div className="flex h-40 w-40 items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">
-              No cover
-            </div>
+            <DefaultBookCover title={project.title} author={project.author} variant="square" />
           )}
           <label className="inline-flex">
             <input

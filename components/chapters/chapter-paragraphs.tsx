@@ -26,8 +26,15 @@ type ChapterParagraphsProps = {
 
 type ApiPayload = { error?: { code?: string; message?: string } };
 
-function isPlaying(item: ParagraphViewItem, time: number): boolean {
-  return item.start !== null && item.end !== null && time >= item.start && time < item.end;
+function isPlaying(item: ParagraphViewItem, time: number, isLastTimed: boolean): boolean {
+  if (item.start === null || item.end === null || time < 0) {
+    return false;
+  }
+  // Last timed paragraph keeps the highlight through trailing silence / duration drift.
+  if (isLastTimed) {
+    return time >= item.start;
+  }
+  return time >= item.start && time < item.end;
 }
 
 export function ChapterParagraphs({
@@ -42,7 +49,13 @@ export function ChapterParagraphs({
   const router = useRouter();
   const voices = useVoiceOptions();
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const audioBytesRef = useRef<ArrayBuffer | null>(null);
+  const fullUrlRef = useRef<string | null>(null);
+  const sliceUrlRef = useRef<string | null>(null);
+  /** Manifest seconds corresponding to currentTime === 0 on the active audio element. */
+  const playbackOriginRef = useRef(0);
+  const [audioReady, setAudioReady] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [time, setTime] = useState(-1);
   const [editing, setEditing] = useState<{ index: number; text: string } | null>(null);
   const [pending, setPending] = useState<number | null>(null);
@@ -61,34 +74,104 @@ export function ChapterParagraphs({
         })
       : 0;
   const editingShort = premiumVoice && editingNeeded > premiumAvailableSeconds;
+  const lastTimedIndex = useMemo(() => {
+    let last = -1;
+    for (const item of view.paragraphs) {
+      if (item.start !== null && item.end !== null) {
+        last = item.index;
+      }
+    }
+    return last;
+  }, [view.paragraphs]);
 
   useEffect(() => {
     if (!audioId) {
       return;
     }
     let cancelled = false;
-    void fetch(`/api/chapters/${chapterId}/audio`)
+    setAudioReady(false);
+    setAudioError(null);
+    setTime(-1);
+    audioBytesRef.current = null;
+    playbackOriginRef.current = 0;
+    void fetch(`/api/chapters/${chapterId}/audio/file`)
       .then(async (response) => {
-        if (!response.ok) {
+        if (cancelled) {
           return;
         }
-        const payload = (await response.json()) as { data?: { audioUrl?: string } };
-        if (!cancelled && payload.data?.audioUrl) {
-          setAudioUrl(payload.data.audioUrl);
+        if (!response.ok) {
+          setAudioError("Could not load chapter audio.");
+          return;
         }
+        const buffer = await response.arrayBuffer();
+        if (cancelled) {
+          return;
+        }
+        if (fullUrlRef.current) {
+          URL.revokeObjectURL(fullUrlRef.current);
+        }
+        if (sliceUrlRef.current) {
+          URL.revokeObjectURL(sliceUrlRef.current);
+          sliceUrlRef.current = null;
+        }
+        audioBytesRef.current = buffer;
+        fullUrlRef.current = URL.createObjectURL(new Blob([buffer], { type: "audio/mpeg" }));
+        setAudioReady(true);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) {
+          setAudioError("Could not load chapter audio.");
+        }
+      });
     return () => {
       cancelled = true;
+      if (fullUrlRef.current) {
+        URL.revokeObjectURL(fullUrlRef.current);
+        fullUrlRef.current = null;
+      }
+      if (sliceUrlRef.current) {
+        URL.revokeObjectURL(sliceUrlRef.current);
+        sliceUrlRef.current = null;
+      }
     };
   }, [audioId, chapterId]);
 
-  function playFrom(item: ParagraphViewItem) {
+  // Bind the full chapter blob imperatively so later paragraph slices are not
+  // overwritten by a React-controlled src on re-render.
+  useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || item.start === null) {
+    if (!audioReady || !audio || !fullUrlRef.current) {
       return;
     }
-    audio.currentTime = item.start;
+    playbackOriginRef.current = 0;
+    audio.src = fullUrlRef.current;
+  }, [audioReady, audioId]);
+
+  function reportTime(audio: HTMLAudioElement) {
+    setTime(playbackOriginRef.current + audio.currentTime);
+  }
+
+  /**
+   * Concatenated chapter MP3s often ignore mid-file currentTime seeks in the
+   * browser. Play from the paragraph's byte offset instead so the spoken audio
+   * matches the clicked text.
+   */
+  function playFrom(item: ParagraphViewItem) {
+    const audio = audioRef.current;
+    const bytes = audioBytesRef.current;
+    if (!audio || !bytes || item.byteOffset === null || item.start === null) {
+      return;
+    }
+    if (sliceUrlRef.current) {
+      URL.revokeObjectURL(sliceUrlRef.current);
+      sliceUrlRef.current = null;
+    }
+    const slice = bytes.slice(item.byteOffset);
+    const url = URL.createObjectURL(new Blob([slice], { type: "audio/mpeg" }));
+    sliceUrlRef.current = url;
+    playbackOriginRef.current = item.start;
+    setTime(item.start);
+    audio.src = url;
     void audio.play().catch(() => undefined);
   }
 
@@ -134,19 +217,23 @@ export function ChapterParagraphs({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="sticky top-0 z-10 bg-card py-2">
-          {audioUrl ? (
+          {audioReady ? (
             <audio
+              key={audioId ?? "chapter-audio"}
               ref={audioRef}
               className="w-full"
               controls
-              src={audioUrl}
-              preload="metadata"
-              onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)}
+              preload="auto"
+              onTimeUpdate={(event) => reportTime(event.currentTarget)}
+              onSeeked={(event) => reportTime(event.currentTarget)}
+              onPlay={(event) => reportTime(event.currentTarget)}
             >
               Your browser does not support audio playback.
             </audio>
           ) : (
-            <p className="text-sm text-muted-foreground">Loading audio...</p>
+            <p className="text-sm text-muted-foreground">
+              {audioError ?? "Loading audio..."}
+            </p>
           )}
         </div>
 
@@ -167,7 +254,7 @@ export function ChapterParagraphs({
 
         <ol className="space-y-1">
           {view.paragraphs.map((item) => {
-            const active = isPlaying(item, time);
+            const active = isPlaying(item, time, item.index === lastTimedIndex);
             const isEditing = editing?.index === item.index;
             const busy = pending === item.index;
             return (
@@ -225,7 +312,7 @@ export function ChapterParagraphs({
                         !item.speakable && "text-muted-foreground",
                       )}
                       onClick={() => playFrom(item)}
-                      disabled={item.start === null}
+                      disabled={item.start === null || item.byteOffset === null || !audioReady}
                       title={item.start === null ? "Not in the current audio" : "Play from here"}
                     >
                       {item.text}

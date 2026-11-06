@@ -157,7 +157,9 @@ describe("getParagraphViewForUser", () => {
       [false, true, true],
     ]);
     expect(view.paragraphs[0].start).toBe(0);
+    expect(view.paragraphs[0].byteOffset).toBe(0);
     expect(view.paragraphs[3].start).toBeGreaterThan(view.paragraphs[0].end ?? 0);
+    expect(view.paragraphs[3].byteOffset).toBeGreaterThan(0);
   });
 
   it("reports legacy audio and plan-less users without timings", async () => {
