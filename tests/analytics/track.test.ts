@@ -4,7 +4,6 @@ import { trackEvent } from "@/lib/analytics/track";
 type TestWindow = {
   dataLayer?: unknown[];
   gtag?: (...args: unknown[]) => void;
-  plausible?: ((...args: unknown[]) => void) & { q?: unknown[][] };
 };
 
 function stubWindow(initial: TestWindow = {}): TestWindow {
@@ -22,7 +21,7 @@ describe("trackEvent", () => {
     expect(() => trackEvent("sign_up", { method: "email" })).not.toThrow();
   });
 
-  it("queues events for GA and Plausible before their scripts load", () => {
+  it("queues events for GA before the script loads", () => {
     const target = stubWindow();
 
     trackEvent("tool_upload_completed", { tool: "epub-to-audiobook" });
@@ -33,13 +32,11 @@ describe("trackEvent", () => {
       "tool_upload_completed",
       { tool: "epub-to-audiobook" },
     ]);
-    expect(target.plausible?.q).toEqual([["tool_upload_completed", { props: { tool: "epub-to-audiobook" } }]]);
   });
 
-  it("sends purchase revenue to both tools", () => {
+  it("sends purchase revenue to GA", () => {
     const gtag = vi.fn();
-    const plausible = vi.fn();
-    stubWindow({ gtag, plausible });
+    stubWindow({ gtag });
 
     trackEvent("purchase", { transaction_id: "order-1", item: "book" }, { amount: 99, currency: "USD" });
 
@@ -48,10 +45,6 @@ describe("trackEvent", () => {
       item: "book",
       value: 99,
       currency: "USD",
-    });
-    expect(plausible).toHaveBeenCalledWith("purchase", {
-      props: { transaction_id: "order-1", item: "book" },
-      revenue: { amount: 99, currency: "USD" },
     });
   });
 

@@ -1,5 +1,5 @@
 /**
- * Browser-side conversion events, sent to Google Analytics and Plausible.
+ * Browser-side conversion events, sent to Google Analytics.
  * Never pass personal data (emails, book titles, file names) as params.
  */
 
@@ -16,15 +16,12 @@ export type AnalyticsParams = Record<string, string | number>;
 
 export type AnalyticsRevenue = { amount: number; currency: string };
 
-type QueueFunction = ((...args: unknown[]) => void) & { q?: unknown[] };
-
 type AnalyticsWindow = Window & {
   dataLayer?: unknown[];
   gtag?: (...args: unknown[]) => void;
-  plausible?: QueueFunction;
 };
 
-/** Same queue stubs as the vendor snippets, so events sent before the scripts load are not lost. */
+/** Same queue stub as the vendor snippet, so events sent before the script loads are not lost. */
 function analyticsWindow(): AnalyticsWindow | null {
   if (typeof window === "undefined") {
     return null;
@@ -38,12 +35,6 @@ function analyticsWindow(): AnalyticsWindow | null {
       // eslint-disable-next-line prefer-rest-params
       target.dataLayer?.push(arguments);
     };
-  if (!target.plausible) {
-    const queue: QueueFunction = (...args: unknown[]) => {
-      (queue.q = queue.q ?? []).push(args);
-    };
-    target.plausible = queue;
-  }
   return target;
 }
 
@@ -54,7 +45,6 @@ export function trackEvent(name: AnalyticsEventName, params: AnalyticsParams = {
   }
   try {
     target.gtag?.("event", name, revenue ? { ...params, value: revenue.amount, currency: revenue.currency } : params);
-    target.plausible?.(name, revenue ? { props: params, revenue } : { props: params });
   } catch {
     // Analytics must never break the page.
   }

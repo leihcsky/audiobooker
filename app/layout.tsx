@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import { PendingSignupEvent } from "@/components/analytics/pending-signup-event";
-import { PlausibleAnalytics } from "@/components/analytics/plausible";
 import { getSiteUrl } from "@/lib/tools/site";
 import "./globals.css";
 
@@ -41,7 +40,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
         <GoogleAnalytics />
-        <PlausibleAnalytics />
         <PendingSignupEvent />
       </body>
     </html>

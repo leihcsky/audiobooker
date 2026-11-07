@@ -42,9 +42,9 @@ export default function PrivacyPage() {
             </>,
             <>
               <strong>Usage.</strong> Narration minutes, jobs, and simple first-party events such as “upload
-              started” or “export downloaded”. We also use Google Analytics and Plausible to understand how visitors
-              find and use the site, such as pages viewed, referring sites, device type, and approximate location.
-              We do not use advertising trackers.
+              started” or “export downloaded”. We also use Google Analytics to understand how visitors find and use
+              the site, such as pages viewed, referring sites, device type, and approximate location. We do not use
+              advertising trackers.
             </>,
             <>
               <strong>Payments.</strong> Payments are handled by Waffo, our merchant of record. We receive the
@@ -92,10 +92,6 @@ export default function PrivacyPage() {
             <>
               <strong>Google</strong> — confirms your identity when you choose to sign in with Google, and
               provides site analytics (Google Analytics).
-            </>,
-            <>
-              <strong>Plausible</strong> — privacy-friendly site analytics that uses no cookies and stores no
-              personal data.
             </>,
             <>
               <strong>Our hosting provider</strong> — runs the servers and database.
