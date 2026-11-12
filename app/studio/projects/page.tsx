@@ -37,59 +37,41 @@ export default async function ProjectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/50 text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Title</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Updated</th>
-                <th className="px-4 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {projects.map((project) => (
-                <tr key={project.id} className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/studio/projects/${project.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {project.title}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <ProjectStatusBadge status={project.status} />
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatDate(project.updatedAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <Link
-                        href={`/studio/projects/${project.id}`}
-                        className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium hover:bg-muted"
-                      >
-                        Open
-                      </Link>
-                      <DeleteProjectButton
-                        projectId={project.id}
-                        title={project.title}
-                        label="Delete"
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        redirectTo={null}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+          {projects.map((project) => (
+            <li key={project.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="min-w-0 flex-1 space-y-2">
+                <Link
+                  href={`/studio/projects/${project.id}`}
+                  className="block break-words font-medium hover:underline"
+                >
+                  {project.title}
+                </Link>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                  <ProjectStatusBadge status={project.status} />
+                  <span>Updated {formatDate(project.updatedAt)}</span>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Link
+                  href={`/studio/projects/${project.id}`}
+                  className="inline-flex h-8 flex-1 items-center justify-center rounded-md border border-border px-3 text-xs font-medium hover:bg-muted sm:flex-none"
+                >
+                  Open
+                </Link>
+                <DeleteProjectButton
+                  projectId={project.id}
+                  title={project.title}
+                  label="Delete"
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 text-destructive hover:bg-destructive/10 hover:text-destructive sm:flex-none"
+                  redirectTo={null}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </main>
   );

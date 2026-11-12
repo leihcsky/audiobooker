@@ -252,16 +252,18 @@ export function ChapterParagraphs({
           <PremiumEstimate neededSeconds={0} availableSeconds={premiumAvailableSeconds} />
         ) : null}
 
-        <ol className="space-y-1">
+        <ol className="space-y-3">
           {view.paragraphs.map((item) => {
             const active = isPlaying(item, time, item.index === lastTimedIndex);
             const isEditing = editing?.index === item.index;
             const busy = pending === item.index;
+            const canRetry = view.retryAvailable && item.speakable && !item.changed;
+            const showActions = item.speakable || item.changed;
             return (
               <li
                 key={item.index}
                 className={cn(
-                  "group rounded-md border-l-2 px-3 py-2 transition-colors",
+                  "rounded-md border-l-2 px-3 py-3 transition-colors",
                   active ? "border-primary bg-muted" : "border-transparent hover:bg-muted/60",
                 )}
               >
@@ -303,11 +305,11 @@ export function ChapterParagraphs({
                     ) : null}
                   </div>
                 ) : (
-                  <div className="flex items-start gap-3">
+                  <div className="space-y-2">
                     <button
                       type="button"
                       className={cn(
-                        "min-w-0 flex-1 whitespace-pre-line text-left font-serif text-base leading-7",
+                        "w-full whitespace-pre-line text-left font-serif text-[15px] leading-7 sm:text-base",
                         item.start === null ? "cursor-default" : "cursor-pointer",
                         !item.speakable && "text-muted-foreground",
                       )}
@@ -317,42 +319,40 @@ export function ChapterParagraphs({
                     >
                       {item.text}
                     </button>
-                    {item.changed ? (
-                      <span className="mt-1 shrink-0 rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                        Changed
-                      </span>
+                    {showActions ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {item.changed ? (
+                          <span className="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                            Changed
+                          </span>
+                        ) : null}
+                        {item.speakable ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2.5"
+                            onClick={() => {
+                              setEditing({ index: item.index, text: item.text });
+                              setError(null);
+                            }}
+                            disabled={locked || pending !== null}
+                          >
+                            Edit
+                          </Button>
+                        ) : null}
+                        {canRetry ? (
+                          <RetryParagraphButton
+                            busy={busy}
+                            locked={locked || pending !== null}
+                            premiumVoice={premiumVoice}
+                            text={item.text}
+                            languageCode={selectedVoice?.language}
+                            availableSeconds={premiumAvailableSeconds}
+                            onRetry={() => void submit(item, { retry: true })}
+                          />
+                        ) : null}
+                      </div>
                     ) : null}
-                    <div
-                      className={cn(
-                        "flex shrink-0 items-center gap-1",
-                        !active && !busy && "md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100",
-                      )}
-                    >
-                      {item.speakable ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setEditing({ index: item.index, text: item.text });
-                            setError(null);
-                          }}
-                          disabled={locked || pending !== null}
-                        >
-                          Edit
-                        </Button>
-                      ) : null}
-                      {view.retryAvailable && item.speakable && !item.changed ? (
-                        <RetryParagraphButton
-                          busy={busy}
-                          locked={locked || pending !== null}
-                          premiumVoice={premiumVoice}
-                          text={item.text}
-                          languageCode={selectedVoice?.language}
-                          availableSeconds={premiumAvailableSeconds}
-                          onRetry={() => void submit(item, { retry: true })}
-                        />
-                      ) : null}
-                    </div>
                   </div>
                 )}
                 {error?.index === item.index ? <p className="mt-2 text-sm text-destructive">{error.message}</p> : null}
@@ -388,10 +388,11 @@ function RetryParagraphButton({
   const short = needed > availableSeconds;
   const labelMinutes = estimatedMinutes(needed);
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-wrap items-center gap-2">
       <Button
         size="sm"
         variant="ghost"
+        className="h-8 px-2.5"
         onClick={onRetry}
         disabled={locked || short}
         title={premiumVoice ? `Uses about ${labelMinutes} premium min · ${remainingMinutes(availableSeconds)} left` : undefined}

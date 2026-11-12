@@ -137,6 +137,7 @@ export function ProjectWorkspace({
       id: chapter.id,
       title: chapter.title,
       audioKey: chapter.currentAudioFileId,
+      durationSeconds: chapter.audioDurationSeconds,
     }));
   const coverUrl = useProjectCover(projectId, book.hasCover, book.updatedAt);
   const premiumSelected = selectedVoice?.tier === "PREMIUM";
@@ -569,25 +570,27 @@ export function ProjectWorkspace({
                 <li
                   key={chapter.id}
                   className={cn(
-                    "group flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 transition-colors hover:border-primary/40 hover:bg-muted/40",
+                    "group rounded-lg border border-border bg-card px-3 py-3 transition-colors hover:border-primary/40 hover:bg-muted/40",
                     !chapter.included && "opacity-60",
                   )}
                 >
-                  <input
-                    type="checkbox"
-                    className="size-4 shrink-0"
-                    aria-label={`Include ${chapter.title}`}
-                    checked={chapter.included}
-                    disabled={narrating}
-                    onChange={(event) => toggleIncluded(chapter.id, event.target.checked)}
-                  />
-                  <Link href={href} className="flex min-w-0 flex-1 items-center gap-3 py-1">
-                    <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground">
-                      {String(chapter.orderIndex).padStart(2, "0")}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium group-hover:underline">{chapter.title}</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1 size-4 shrink-0"
+                      aria-label={`Include ${chapter.title}`}
+                      checked={chapter.included}
+                      disabled={narrating}
+                      onChange={(event) => toggleIncluded(chapter.id, event.target.checked)}
+                    />
+                    <Link href={href} className="min-w-0 flex-1">
+                      <span className="flex items-baseline gap-2">
+                        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                          {String(chapter.orderIndex).padStart(2, "0")}
+                        </span>
+                        <span className="break-words font-medium group-hover:underline">{chapter.title}</span>
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
                         <span
                           className={cn(
                             state === "ready" && "text-primary",
@@ -605,11 +608,14 @@ export function ProjectWorkspace({
                           ? formatAudioDuration(chapter.audioDurationSeconds)
                           : `about ${formatSpokenLength(chapter.estimatedSeconds)}`}
                       </span>
-                    </span>
-                  </Link>
+                    </Link>
+                  </div>
+
                   {confirming ? (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <span className="mr-1 hidden text-xs text-muted-foreground sm:inline">Delete this chapter?</span>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 sm:justify-end">
+                      <span className="w-full text-xs text-muted-foreground sm:mr-auto sm:w-auto">
+                        Delete this chapter?
+                      </span>
                       <Button
                         variant="destructive"
                         size="sm"
@@ -623,10 +629,10 @@ export function ProjectWorkspace({
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 sm:justify-end">
                       <Link
                         href={href}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium hover:bg-muted"
+                        className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium hover:bg-muted sm:flex-none"
                       >
                         <PencilIcon className="size-3.5 shrink-0" />
                         Edit

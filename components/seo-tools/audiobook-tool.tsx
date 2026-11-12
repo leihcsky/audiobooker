@@ -1155,6 +1155,7 @@ export function AudiobookTool({ config, signedIn }: AudiobookToolProps) {
                 id: chapter.id,
                 title: chapter.title,
                 audioKey: chapter.currentAudioFileId,
+                durationSeconds: chapter.audioDurationSeconds,
               }))}
             />
             <fieldset className="space-y-2">
